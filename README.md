@@ -34,7 +34,7 @@ Logins are module secrets: the controller keeps them apart from state and config
 include them, so restoring a save or loading it on another unit brings the logins back. A downloaded
 save carries them only sealed with a passphrase you pick, or not at all. Module Reset or a factory
 reset removes them. Earlier versions kept them in `credentials.json` in the data folder; the first
-start on controller 0.14.0 or later moves them into the secrets. An older controller has no secrets,
+start on controller 0.15.0 or later moves them into the secrets. An older controller has no secrets,
 so there the module keeps using that file and saves leave the logins out. The web view can show a stored
 password after the system PIN is entered at the panel (a browser signed in with the PIN is not asked
 again), and only to the browser that asked.
