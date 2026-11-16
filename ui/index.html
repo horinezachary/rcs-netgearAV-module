@@ -1,0 +1,437 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      html, body { height: 100%; overflow: hidden; }
+      main { height: 100%; display: flex; flex-direction: column; padding: 16px 32px 18px; gap: 12px; box-sizing: border-box; }
+      header { display: flex; align-items: center; gap: 16px; min-height: 48px; }
+      h1 { margin: 0; font-size: 26px; font-weight: 700; white-space: nowrap; }
+      .device { font: 15px var(--rcs-mono); color: var(--rcs-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+      .grow { flex: 1; }
+      .note { margin: 0; color: var(--rcs-muted); font-size: 15px; line-height: 1.45; }
+      .empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; text-align: center; }
+      .empty p { margin: 0; color: var(--rcs-muted); font-size: 17px; max-width: 860px; line-height: 1.5; }
+      .tabs { display: flex; gap: 8px; }
+      .tabs button { height: 44px; padding: 0 16px; border-radius: 10px; font: 600 15px var(--rcs-font); color: var(--rcs-text); background: var(--rcs-surface); border: 1px solid var(--rcs-border); cursor: pointer; white-space: nowrap; }
+      .tabs button[aria-pressed=true] { border-color: var(--rcs-accent); color: var(--rcs-accent); }
+      .good { color: var(--rcs-ok); }
+      .bad { color: var(--rcs-error); }
+      .warn { color: var(--rcs-warn); }
+      .badge { font: 600 12px var(--rcs-font); letter-spacing: 0.06em; padding: 3px 8px; border-radius: 6px; border: 1px solid currentColor; white-space: nowrap; }
+      .scroll { flex: 1; min-height: 0; overflow-y: auto; }
+
+      /* overview */
+      .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(560px, 1fr)); gap: 12px; }
+      .card { border: 1px solid var(--rcs-border); border-radius: 12px; background: var(--rcs-surface); padding: 12px 16px; display: grid; grid-template-columns: auto 1fr; gap: 4px 22px;
+        text-align: left; color: var(--rcs-text); font: inherit; cursor: pointer; min-width: 0; height: 160px; box-sizing: border-box; }
+      .card.off { border-color: color-mix(in srgb, var(--rcs-error) 60%, transparent); }
+      .card .top { grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; min-width: 0; }
+      .card .n { font-size: 19px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .card .m { font: 13px var(--rcs-mono); color: var(--rcs-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .dot { width: 10px; height: 10px; border-radius: 5px; background: var(--rcs-muted); flex: none; }
+      .dot.up { background: var(--rcs-ok); }
+      .dot.down { background: var(--rcs-error); }
+      .kv { display: grid; grid-template-columns: repeat(4, auto); gap: 2px 16px; align-content: start; }
+      .kv .k { white-space: nowrap; font-size: 11px; font-weight: 600; letter-spacing: 0.08em; color: var(--rcs-muted); }
+      .kv .v { font: 700 18px var(--rcs-mono); white-space: nowrap; }
+      .spark { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+      .spark .k { font-size: 11px; font-weight: 600; letter-spacing: 0.08em; color: var(--rcs-muted); display: flex; justify-content: space-between; }
+      .spark svg { width: 100%; height: 56px; display: block; }
+      .card .why { grid-column: 1 / -1; font-size: 13px; color: var(--rcs-error); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+      /* ports */
+      .ports { display: grid; gap: 7px; }
+      .port { height: 78px; border-radius: 10px; padding: 3px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; color: var(--rcs-text);
+        font: 12px var(--rcs-font); cursor: pointer; border: 1px solid var(--rcs-border); background: var(--rcs-surface); min-width: 0; }
+      .port .n { font: 700 15px var(--rcs-mono); display: flex; align-items: center; gap: 4px; }
+      .port .dot { width: 8px; height: 8px; }
+      .port .vl { font-weight: 600; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .port .sub { font-size: 11px; color: var(--rcs-muted); white-space: nowrap; }
+      .port.down { opacity: 0.55; }
+      .port.shut { opacity: 0.45; background: repeating-linear-gradient(135deg, transparent 0 6px, color-mix(in srgb, var(--rcs-error) 18%, transparent) 6px 8px) !important; }
+      .port.pending { border: 2px dashed var(--rcs-accent); opacity: 1; }
+      .port.sel { border: 3px solid var(--rcs-accent); opacity: 1; }
+      .port .bolt { color: var(--rcs-warn); font-size: 11px; }
+      .port .bolt.fault { color: var(--rcs-error); }
+      .selbar { display: flex; align-items: center; gap: 14px; min-height: 52px; padding: 0 14px; border-radius: 12px; border: 1px solid var(--rcs-border); background: var(--rcs-surface); white-space: nowrap; min-width: 0; }
+      .selbar .p { font: 700 20px var(--rcs-mono); }
+      .selbar .i { color: var(--rcs-muted); font-size: 15px; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+      .selbar .k { font-size: 12px; font-weight: 600; letter-spacing: 0.08em; color: var(--rcs-muted); }
+      .selbar .v { font: 700 17px var(--rcs-mono); }
+      .selbar .to { color: var(--rcs-accent); font: 700 17px var(--rcs-mono); }
+      .actions { display: flex; align-items: center; gap: 10px; }
+
+      /* discover */
+      .list { border: 1px solid var(--rcs-border); border-radius: 12px; background: var(--rcs-surface); }
+      .item { display: flex; align-items: center; gap: 18px; padding: 10px 18px; border-bottom: 1px solid var(--rcs-border); }
+      .item:last-child { border-bottom: 0; }
+      .mono-badge { width: 54px; height: 46px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font: 700 13px var(--rcs-mono); background: var(--rcs-bg); border: 1px solid var(--rcs-border); }
+      .item .t { flex: 1; min-width: 0; }
+      .item .n { font-size: 18px; font-weight: 600; }
+      .item .d { font: 14px var(--rcs-mono); color: var(--rcs-muted); margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+      /* setup */
+      .setup { flex: 1; min-height: 0; display: grid; grid-template-columns: 360px 1fr; gap: 28px; }
+      .col { display: flex; flex-direction: column; gap: 14px; }
+      .toggle { display: flex; align-items: center; gap: 14px; font-size: 16px; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <h1 id="title">Switches</h1>
+        <span class="device" id="device"></span>
+        <rcs-status id="status" connection="disconnected"></rcs-status>
+        <div class="grow"></div>
+        <div class="tabs" id="swTabs" role="group" aria-label="Switch"></div>
+        <rcs-button id="saveStartup" size="small" variant="primary" hidden>Save to startup</rcs-button>
+        <rcs-button id="search" size="small" hidden>Search again</rcs-button>
+        <rcs-button id="scan" size="small" hidden>Scan subnet</rcs-button>
+        <rcs-button id="toSetup" size="small">Setup</rcs-button>
+      </header>
+
+      <div class="empty" id="empty" hidden>
+        <p id="emptyText"></p>
+        <div class="actions"><rcs-button id="emptyFind" variant="primary">Find switches</rcs-button><rcs-button id="emptySetup">Open Setup</rcs-button></div>
+      </div>
+
+      <section id="view-overview" class="scroll" hidden>
+        <div class="cards" id="cards"></div>
+      </section>
+
+      <section id="view-ports" hidden style="flex-direction: column; gap: 10px; flex: 1; min-height: 0">
+        <div class="ports" id="ports"></div>
+        <div class="selbar" id="selbar"></div>
+        <div class="actions" id="portActions"></div>
+      </section>
+
+      <section id="view-discover" class="scroll" hidden>
+        <p class="note" style="margin-bottom: 10px" id="findNote"></p>
+        <div class="list" id="found"></div>
+      </section>
+
+      <section id="view-setup" class="setup" hidden>
+        <div class="col">
+          <rcs-field id="address" label="Add a switch by IP address" kind="ip" placeholder="192.168.0.239"></rcs-field>
+          <label class="toggle"><rcs-toggle id="allowChanges" label="Allow changes"></rcs-toggle>Allow changes: VLANs, PoE, ports, save config</label>
+          <p class="note">Logins are set in the web view's Setup page. For switches onboarded to NETGEAR Engage, use the Engage site password as the shared login.</p>
+        </div>
+        <div class="scroll"><div class="list" id="swList"></div></div>
+      </section>
+    </main>
+
+    <rcs-dialog id="confirm">
+      <span id="confirmText"></span>
+      <div slot="buttons">
+        <rcs-button id="no">Cancel</rcs-button>
+        <rcs-button id="yes" variant="primary">OK</rcs-button>
+      </div>
+    </rcs-dialog>
+
+    <script type="module">
+      const $ = (id) => document.getElementById(id);
+      const TITLES = { overview: 'Switches', ports: 'Ports', discover: 'Find switches', setup: 'Setup' };
+      const VLAN_COLORS = ['#8C95A1', '#5B8DEF', '#B57BFF', '#3DD68C', '#FF8A4C', '#4CC9F0', '#FF6B9A', '#D4D46A', '#A0E26B', '#E879F9', '#F87171', '#60A5FA'];
+      let s = null;
+      let onYes = null;
+
+      function el(tag, attrs = {}, text) {
+        const e = document.createElement(tag);
+        for (const [k, v] of Object.entries(attrs)) {
+          if (v === true) e.setAttribute(k, '');
+          else if (v !== false && v != null) e.setAttribute(k, String(v));
+        }
+        if (text != null) e.textContent = text;
+        return e;
+      }
+      function button(label, variant, onclick, disabled = false) {
+        const b = el('rcs-button', { size: 'small', variant, disabled }, label);
+        b.onclick = onclick;
+        return b;
+      }
+      function ask(text, label, variant, fn) {
+        $('confirmText').textContent = text;
+        $('yes').textContent = label;
+        $('yes').setAttribute('variant', variant);
+        onYes = fn;
+        $('confirm').show();
+      }
+      $('no').onclick = () => $('confirm').close();
+      $('yes').onclick = () => {
+        $('confirm').close();
+        onYes?.();
+      };
+
+      const vlans = () => s.detail?.vlans ?? [];
+      const vlanColor = (id) => {
+        const i = vlans().findIndex((v) => v.id === id);
+        return i < 0 ? '#8C95A1' : VLAN_COLORS[i % VLAN_COLORS.length];
+      };
+      const vlanName = (id) => vlans().find((v) => v.id === id)?.name || (id ? `VLAN ${id}` : '–');
+      const speed = (m) => (m >= 1000 ? `${m / 1000}G` : m ? `${m}M` : '');
+      const rate = (m) => (m >= 1000 ? `${(m / 1000).toFixed(1)} Gb/s` : `${m >= 100 ? m.toFixed(0) : m.toFixed(1)} Mb/s`);
+      const cur = () => s.switches.find((x) => x.id === s.current);
+
+      function sparkline(hist) {
+        const NS = 'http://www.w3.org/2000/svg';
+        const svg = document.createElementNS(NS, 'svg');
+        svg.setAttribute('viewBox', '0 0 200 56');
+        svg.setAttribute('preserveAspectRatio', 'none');
+        const max = Math.max(10, ...hist.flat());
+        const n = Math.max(hist.length - 1, 1);
+        const pts = (k) => hist.map((h, i) => `${((i / n) * 200).toFixed(1)},${(54 - (h[k] / max) * 52).toFixed(1)}`).join(' ');
+        for (const [k, color] of [[0, '#5B8DEF'], [1, '#F5A524']]) {
+          const l = document.createElementNS(NS, 'polyline');
+          l.setAttribute('points', pts(k));
+          l.setAttribute('fill', 'none');
+          l.setAttribute('stroke', color);
+          l.setAttribute('stroke-width', '2');
+          l.setAttribute('vector-effect', 'non-scaling-stroke');
+          svg.append(l);
+        }
+        return svg;
+      }
+
+      function drawOverview() {
+        $('cards').replaceChildren(
+          ...s.switches.map((w) => {
+            const b = el('button', { class: 'card' + (w.ready ? '' : ' off'), 'aria-label': `${w.name}, open ports` });
+            const top = el('div', { class: 'top' });
+            top.append(el('span', { class: 'dot ' + (w.ready ? 'up' : w.connection === 'connecting' ? '' : 'down') }), el('span', { class: 'n' }, w.name), el('span', { class: 'm' }, [w.model, w.address].filter(Boolean).join(' · ')), el('div', { class: 'grow' }));
+            if (w.unsaved) top.append(el('span', { class: 'badge warn' }, 'NOT SAVED'));
+            if (w.faults) top.append(el('span', { class: 'badge bad' }, `${w.faults} POE FAULT${w.faults > 1 ? 'S' : ''}`));
+            b.append(top);
+            if (!w.ready) {
+              b.append(el('span', { class: 'why' }, w.certificateSeen ? 'Certificate changed: trust it in Setup' : w.statusText || 'Connecting…'));
+            } else {
+              const i = w.info ?? {};
+              const kv = el('div', { class: 'kv' });
+              const cells = [
+                ['UP', `${w.portsUp}/${w.portCount}`],
+                ['POE', i.poeDraw != null ? `${Math.round(i.poeDraw)}${i.poeBudget ? '/' + Math.round(i.poeBudget) : ''} W` : '–'],
+                ['CPU', i.cpu || '–'],
+                ['TEMP', i.temp != null ? `${i.temp}°` : '–']
+              ];
+              for (const [k] of cells) kv.append(el('span', { class: 'k' }, k));
+              for (const [, v] of cells) kv.append(el('span', { class: 'v' }, v));
+              kv.append(el('span', { class: 'k', style: 'grid-column: 1 / -1; margin-top: 8px' }, `FW ${i.firmware || '–'} · UP ${(i.uptime || '–').replace(/,.*$/, '')}`));
+              const sp = el('div', { class: 'spark' });
+              const now = w.history.at(-1) ?? [0, 0];
+              const k = el('span', { class: 'k' });
+              k.append(el('span', {}, 'TRAFFIC'), el('span', {}, `↓${rate(now[0])} ↑${rate(now[1])}`));
+              sp.append(k, sparkline(w.history));
+              b.append(kv, sp);
+            }
+            b.onclick = () => rcs.send({ type: 'select-switch', id: w.id, open: true });
+            return b;
+          })
+        );
+      }
+
+      function drawTabs(show) {
+        $('swTabs').hidden = !show || s.switches.length < 2;
+        if ($('swTabs').hidden) return;
+        $('swTabs').replaceChildren(
+          ...s.switches.map((w) => {
+            const b = el('button', { 'aria-pressed': String(w.id === s.current) }, w.name);
+            b.onclick = () => rcs.send({ type: 'select-switch', id: w.id });
+            return b;
+          })
+        );
+      }
+
+      function drawPorts() {
+        const w = cur();
+        const d = s.detail;
+        if (!w || !d || !w.ready) {
+          $('ports').replaceChildren(el('p', { class: 'note' }, w ? w.statusText || 'Connecting…' : 'No switch yet.'));
+          $('selbar').hidden = true;
+          $('portActions').replaceChildren();
+          return;
+        }
+        $('selbar').hidden = false;
+        const pend = new Map(s.pending);
+        const byIdx = new Map(d.ports.map((p) => [p.idx, p]));
+        // Laid out like the front panel: odd ports on the top row, even ports below them.
+        const rows = d.layout;
+        const cols = Math.max(...rows.map((r) => r.length));
+        const grid = $('ports').style;
+        grid.gridTemplateColumns = `repeat(${cols}, minmax(0, 1fr))`;
+        grid.gridTemplateRows = `repeat(${rows.length}, auto)`;
+        if (cols > 20) grid.gap = '5px';
+        $('ports').replaceChildren(
+          ...rows.flatMap((row, r) =>
+            row.map((idx, c) => {
+              const p = byIdx.get(idx);
+              const shown = pend.get(idx) ?? p.pvid;
+              const color = vlanColor(shown);
+              const cls = ['port', p.up ? '' : 'down', p.enabled ? '' : 'shut', pend.has(idx) ? 'pending' : '', idx === s.selPort ? 'sel' : ''].filter(Boolean).join(' ');
+              const b = el('button', { class: cls, 'aria-label': `Port ${idx}` });
+              b.style.gridRow = String(r + 1);
+              b.style.gridColumn = String(c + 1);
+              b.style.background = `color-mix(in srgb, ${color} ${p.up ? 22 : 8}%, var(--rcs-surface))`;
+              if (!pend.has(idx) && idx !== s.selPort) b.style.borderColor = `color-mix(in srgb, ${color} 55%, transparent)`;
+              const n = el('span', { class: 'n' });
+              n.append(el('span', { class: 'dot' + (p.up ? ' up' : '') }), String(idx));
+              const sub = el('span', { class: 'sub' }, pend.has(idx) ? 'unsaved' : !p.enabled ? 'shut' : p.up ? speed(p.speed) || 'up' : p.sfp ? 'SFP' : '');
+              if (p.poe?.watts) sub.append(' ', el('span', { class: 'bolt' }, `⚡${Math.round(p.poe.watts)}`));
+              else if (p.poe && /Fault|Overload/.test(p.poe.status)) sub.append(' ', el('span', { class: 'bolt fault' }, '⚡!'));
+              b.append(n, el('span', { class: 'vl' }, vlanName(shown)), sub);
+              b.onclick = () => rcs.send({ type: 'select-port', idx });
+              return b;
+            })
+          )
+        );
+        const p = byIdx.get(s.selPort) ?? d.ports[0];
+        const bar = [];
+        if (p) {
+          const info = [
+            p.name || (p.up ? '' : 'nothing connected'),
+            p.neighbor ? `LLDP ${p.neighbor}${p.neighborPort ? ' ' + p.neighborPort : ''}` : '',
+            !p.enabled ? 'shut down' : p.up ? `${speed(p.speed)} · ↓${rate(p.rx)} ↑${rate(p.tx)}` : 'no link',
+            p.poe ? `PoE ${p.poe.status.toLowerCase()}${p.poe.watts ? ' ' + p.poe.watts.toFixed(1) + ' W' : ''}` : ''
+          ].filter(Boolean);
+          const tagged = p.vlans.filter((v) => v !== p.pvid);
+          bar.push(el('span', { class: 'p' }, `Port ${p.idx}`), el('span', { class: 'i' }, info.join(' · ')), el('div', { class: 'grow' }));
+          if (tagged.length) bar.push(el('span', { class: 'k' }, 'TAGGED'), el('span', { class: 'v' }, tagged.length > 4 ? `${tagged.length} VLANs` : tagged.join(', ')));
+          bar.push(el('span', { class: 'k' }, 'VLAN'), el('span', { class: 'v' }, `${vlanName(p.pvid)} (${p.pvid || '–'})`));
+          if (pend.has(p.idx)) bar.push(el('span', { class: 'to' }, '→'), el('span', { class: 'to' }, `${vlanName(pend.get(p.idx))} (${pend.get(p.idx)})`));
+        }
+        $('selbar').replaceChildren(...bar);
+
+        const allow = s.allowChanges;
+        const acts = [];
+        if (p) {
+          if (p.poe) {
+            acts.push(
+              button(p.poe.enabled ? 'PoE off' : 'PoE on', p.poe.enabled ? 'danger' : 'primary', () =>
+                ask(p.poe.enabled ? `Turn PoE off on port ${p.idx} of ${w.name}? ${p.name || 'The device'} loses power.` : `Turn PoE on for port ${p.idx} of ${w.name}?`, p.poe.enabled ? 'Turn off' : 'Turn on', p.poe.enabled ? 'danger' : 'primary', () =>
+                  rcs.send({ type: 'poe', id: w.id, idx: p.idx, on: !p.poe.enabled })
+                ), !allow),
+              button('Power cycle', 'danger', () => ask(`Power cycle port ${p.idx} of ${w.name}? ${p.name || 'The device'} restarts.`, 'Power cycle', 'danger', () => rcs.send({ type: 'cycle', id: w.id, idx: p.idx })), !allow || !p.poe.enabled)
+            );
+          }
+          acts.push(
+            button(p.enabled ? 'Shut port' : 'Enable port', p.enabled ? 'danger' : 'primary', () =>
+              ask(p.enabled ? `Shut down port ${p.idx} of ${w.name}? ${p.name || 'Anything on it'} goes offline${p.neighbor ? ', and LLDP sees ' + p.neighbor + ' there' : ''}.` : `Enable port ${p.idx} of ${w.name}?`, p.enabled ? 'Shut down' : 'Enable', p.enabled ? 'danger' : 'primary', () =>
+                rcs.send({ type: 'port-enabled', id: w.id, idx: p.idx, on: !p.enabled })
+              ), !allow)
+          );
+        }
+        acts.push(el('div', { class: 'grow' }));
+        if (pend.size) {
+          acts.push(
+            button('Revert', undefined, () => rcs.send({ type: 'revert' })),
+            button(`Save ${pend.size}`, 'primary', () =>
+              ask(`Change the VLAN of ${pend.size} port${pend.size > 1 ? 's' : ''} on ${w.name}: ${[...pend].map(([i, v]) => `${i} → ${vlanName(v)}`).join(', ')}? Devices on ${pend.size > 1 ? 'them' : 'it'} move networks.`, 'Save', 'primary', () => rcs.send({ type: 'save' }))
+            )
+          );
+        }
+        acts.push(
+          el(
+            'p',
+            { class: 'note' },
+            !allow
+              ? 'View only. Turn on Allow changes in Setup to change ports.'
+              : pend.size
+                ? `${pend.size} unsaved VLAN change${pend.size > 1 ? 's' : ''}. Hold SAVE (key 15) or tap Save.`
+                : 'Tap a port, pick its VLAN on the keys, hold SAVE (key 15).'
+          )
+        );
+        $('portActions').replaceChildren(...acts);
+      }
+
+      function drawDiscover() {
+        const known = (f) => s.switches.find((w) => w.address === f.address && w.port === (f.apiPort || 8443));
+        $('findNote').textContent = s.searching
+          ? s.searching === 'scan' ? 'Scanning this network for switch APIs on port 8443…' : 'Asking switches on this network to answer…'
+          : 'Switches on the same network answer a search. Scan subnet also finds switches that do not answer it, by their API port. Switches managed by NETGEAR Engage are found too: use the Engage site password as the login.';
+        if (!s.found.length) return $('found').replaceChildren(el('div', { class: 'item' }, s.searching ? 'Searching…' : 'No switches found yet. Try Scan subnet, or add one by IP address in Setup.'));
+        $('found').replaceChildren(
+          ...s.found.map((f) => {
+            const row = el('div', { class: 'item' });
+            const t = el('div', { class: 't' });
+            const port = f.apiPort && f.apiPort !== 8443 ? ':' + f.apiPort : '';
+            const k = known(f);
+            const model = f.model || k?.model || '';
+            t.append(el('div', { class: 'n' }, f.name || k?.name || model || 'Switch'), el('div', { class: 'd' }, [f.address + port, model, f.mac, f.firmware && `firmware ${f.firmware}`, f.via.includes('nsdp') ? '' : 'API port only'].filter(Boolean).join(' · ')));
+            const isAdded = !!k;
+            const b = button(isAdded ? 'Added' : 'Add', isAdded ? undefined : 'primary', () => rcs.send({ type: 'add', address: f.address, port: f.apiPort || 8443, label: f.name }), isAdded);
+            row.append(el('span', { class: 'mono-badge' }, model.match(/M4\d{3}/)?.[0] ?? 'SW'), t, b);
+            return row;
+          })
+        );
+      }
+
+      function drawSetup() {
+        $('allowChanges').checked = s.allowChanges;
+        if (!s.switches.length) return $('swList').replaceChildren(el('div', { class: 'item' }, 'No switches yet. Add one by IP address, or use Find.'));
+        $('swList').replaceChildren(
+          ...s.switches.map((w) => {
+            const row = el('div', { class: 'item' });
+            const t = el('div', { class: 't' });
+            const login = w.login === 'own' ? `login ${w.username}` : w.login === 'shared' ? `shared login ${w.username}` : 'no login';
+            t.append(el('div', { class: 'n' }, w.name), el('div', { class: 'd' }, [`${w.address}${w.port !== 8443 ? ':' + w.port : ''}`, w.ready ? 'connected' : w.statusText || w.connection, login].join(' · ')));
+            row.append(el('span', { class: 'dot ' + (w.ready ? 'up' : 'down') }), t);
+            if (w.certificateSeen) row.append(button('Trust new certificate', 'danger', () => ask(`${w.name} is showing a different certificate than before. Trust it only if the switch or its certificate was replaced.`, 'Trust', 'danger', () => rcs.send({ type: 'trust', id: w.id }))));
+            row.append(button('Remove', 'danger', () => ask(`Remove ${w.name} from this module? Nothing changes on the switch.`, 'Remove', 'danger', () => rcs.send({ type: 'remove', id: w.id }))));
+            return row;
+          })
+        );
+      }
+
+      function draw() {
+        if (!s) return;
+        const v = s.view;
+        const w = cur();
+        $('title').textContent = TITLES[v];
+        $('status').setAttribute('connection', !s.switches.length ? 'disconnected' : s.switches.every((x) => x.ready) ? 'connected' : s.switches.some((x) => x.ready) ? 'connecting' : 'disconnected');
+        const up = s.switches.filter((x) => x.ready).length;
+        $('status').textContent = s.switches.length ? `${up}/${s.switches.length}` : '';
+        $('device').textContent = v === 'ports' && w ? [w.model, w.address].filter(Boolean).join(' · ') : '';
+        drawTabs(v === 'ports');
+        $('saveStartup').hidden = !(v === 'ports' && w?.unsaved && s.allowChanges);
+        $('search').hidden = $('scan').hidden = v !== 'discover';
+        $('search').toggleAttribute('disabled', !!s.searching);
+        $('scan').toggleAttribute('disabled', !!s.searching);
+        $('toSetup').hidden = v === 'setup' || v === 'ports';
+        const none = !s.switches.length && (v === 'overview' || v === 'ports');
+        $('empty').hidden = !none;
+        if (none) $('emptyText').textContent = 'No switches yet. Find the AV Line switches on this network, or add one by IP address in Setup.';
+        for (const x of ['overview', 'ports', 'discover', 'setup']) $('view-' + x).hidden = none || x !== v;
+        $('view-ports').style.display = !none && v === 'ports' ? 'flex' : 'none';
+        $('view-setup').style.display = v === 'setup' ? 'grid' : 'none';
+        if (none) return;
+        if (v === 'overview') drawOverview();
+        if (v === 'ports') drawPorts();
+        if (v === 'discover') drawDiscover();
+        if (v === 'setup') drawSetup();
+      }
+
+      $('toSetup').onclick = () => rcs.send({ type: 'view', view: 'setup' });
+      $('emptySetup').onclick = () => rcs.send({ type: 'view', view: 'setup' });
+      $('emptyFind').onclick = () => rcs.send({ type: 'view', view: 'discover' });
+      $('search').onclick = () => rcs.send({ type: 'search', how: 'nsdp' });
+      $('scan').onclick = () => rcs.send({ type: 'search', how: 'scan' });
+      $('saveStartup').onclick = () => {
+        const w = cur();
+        ask(`Save the running config of ${w.name} to its startup config? Changes made here are live now but are lost at the next reboot until saved.`, 'Save', 'primary', () => rcs.send({ type: 'save-config', id: w.id }));
+      };
+      $('address').addEventListener('change', (e) => {
+        if (e.detail) rcs.send({ type: 'add', address: e.detail });
+        $('address').value = '';
+      });
+      $('allowChanges').addEventListener('change', (e) => rcs.send({ type: 'allow', on: e.detail }));
+
+      await rcs.ready();
+      rcs.on('message', (m) => {
+        if (m?.type === 'snapshot') {
+          s = m;
+          draw();
+        }
+      });
+      rcs.send({ type: 'hello' });
+    </script>
+  </body>
+</html>

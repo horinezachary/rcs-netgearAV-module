@@ -1,0 +1,21 @@
+{
+  "id": "netgear-av",
+  "name": "Netgear AV Switches",
+  "version": "0.1.0",
+  "description": "Find, watch and manage Netgear AV Line switches: ports, VLANs, PoE and health",
+  "icon": "assets/icon.svg",
+  "apiVersion": 1,
+  "entry": "dist/index.js",
+  "ui": "ui",
+  "configSchema": "config.schema.json",
+  "defaults": "config.defaults.json",
+  "web": {
+    "ui": "web",
+    "pages": [
+      { "id": "overview", "label": "Switches" },
+      { "id": "ports", "label": "Ports" },
+      { "id": "discover", "label": "Discover" },
+      { "id": "setup", "label": "Setup" }
+    ]
+  }
+}

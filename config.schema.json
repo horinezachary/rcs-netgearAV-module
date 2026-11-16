@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "switches": {
+      "type": "array",
+      "maxItems": 16,
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "pattern": "^[0-9a-f]{8}$" },
+          "address": { "type": "string", "minLength": 1, "maxLength": 253 },
+          "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+          "fingerprint": { "type": "string", "maxLength": 128 },
+          "label": { "type": "string", "maxLength": 40 }
+        },
+        "required": ["id", "address", "port", "fingerprint", "label"],
+        "additionalProperties": false
+      }
+    },
+    "allowChanges": { "type": "boolean" }
+  },
+  "required": ["switches", "allowChanges"],
+  "additionalProperties": false
+}
