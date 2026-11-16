@@ -236,6 +236,17 @@ describe('module', () => {
     expect(JSON.stringify(sim!.uiMessages)).not.toContain('"pw"');
   });
 
+  it('keeps credentials.json on a controller without secrets', async () => {
+    const dataDir = await mkdtemp(path.join(os.tmpdir(), 'netgear-old-host-'));
+    const login = { username: 'admin', password: 'pw' };
+    await writeFile(path.join(dataDir, 'credentials.json'), JSON.stringify({ shared: login, perSwitch: {} }));
+    sim = await startTestModule(mod, { config: { switches: [], allowChanges: false }, dataDir, noSecrets: true });
+    await until(() => sim!.strip.length > 0);
+    expect(last().shared).toBe('admin');
+    expect(JSON.parse(await readFile(path.join(dataDir, 'credentials.json'), 'utf8'))).toEqual({ shared: login, perSwitch: {} });
+    expect(sim.errors).toEqual([]);
+  });
+
   it('moves credentials.json from an older version into the secrets', async () => {
     const dataDir = await mkdtemp(path.join(os.tmpdir(), 'netgear-legacy-'));
     const login = { username: 'admin', password: 'pw' };
