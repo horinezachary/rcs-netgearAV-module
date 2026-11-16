@@ -4,7 +4,7 @@
 // The switches are the source of truth. Ports, VLANs, PoE and health are read from them on every
 // poll and kept only in memory. State holds what the panel is looking at (switch, port); config
 // holds the list of switches (address, port, pinned certificate) and the Allow changes switch; the
-// switch logins live in the module's data folder, so they are never in a save. Starting, restoring
+// switch logins are module secrets, kept apart from both and carried in named saves. Starting, restoring
 // and reconnecting only read. A change (a port's VLAN, PoE, shutting a port, saving the running
 // config) goes out only when the operator asks, only with Allow changes on, and only after a
 // confirmation: a held key on the Stream Deck, a dialog on screen.
@@ -22,7 +22,7 @@
 //   Discover    keys 6-15 switches found, press to add
 
 import { randomBytes } from 'node:crypto';
-import { chmod, mkdir, readFile, rename, writeFile } from 'node:fs/promises';
+import { chmod, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { defineModule, type Ctx, type KeySetParams } from '@rcs/module-sdk';
 import { SwitchClient, type Login } from './client.js';
@@ -117,32 +117,67 @@ function quiet(p: Promise<unknown>): void {
   p.catch(() => {});
 }
 
-// ---- credentials: in the data folder, never in state, config or a save --------------------------
+// ---- credentials: module secrets, never in state or config ------------------------------------
+//
+// The controller keeps them apart from state and config, puts them in named saves (sealed with a
+// passphrase in a downloaded save) and clears them on Reset. Earlier versions, and controllers
+// before 0.15.0 that have no secrets, keep them in credentials.json in the data folder (mode 600,
+// not in saves). On a newer controller that file is moved into the secrets on the first start.
 
-const credsFile = (ctx: C) => path.join(ctx.dataDir, 'credentials.json');
+const LEGACY_FILE = 'credentials.json';
+/** Set false once the controller turns out to be one without secrets. */
+let hostHasSecrets = true;
 const cleanLogin = (l: any): Login | undefined =>
   l && typeof l.username === 'string' && typeof l.password === 'string' && l.username && l.password ? { username: l.username.slice(0, 64), password: l.password.slice(0, 128) } : undefined;
 
-async function loadCreds(ctx: C): Promise<Credentials> {
-  try {
-    const j = JSON.parse(await readFile(credsFile(ctx), 'utf8'));
-    const perSwitch: Record<string, Login> = {};
-    for (const [k, v] of Object.entries(j.perSwitch ?? {})) {
-      const l = cleanLogin(v);
-      if (l) perSwitch[k] = l;
-    }
-    return { shared: cleanLogin(j.shared), perSwitch };
-  } catch {
-    return { perSwitch: {} };
+function credsOf(j: any): Credentials {
+  const perSwitch: Record<string, Login> = {};
+  for (const [k, v] of Object.entries(j?.perSwitch ?? {})) {
+    const l = cleanLogin(v);
+    if (l) perSwitch[k] = l;
   }
+  const shared = cleanLogin(j?.shared);
+  return shared ? { shared, perSwitch } : { perSwitch };
+}
+
+const anyLogin = (c: Credentials) => !!c.shared || Object.keys(c.perSwitch).length > 0;
+
+async function loadCreds(ctx: C): Promise<Credentials> {
+  hostHasSecrets = true;
+  const file = path.join(ctx.dataDir, LEGACY_FILE);
+  let legacy: Credentials | null = null;
+  try {
+    legacy = credsOf(JSON.parse(await readFile(file, 'utf8')));
+  } catch {
+    // none, or unreadable
+  }
+  if (!legacy) return credsOf(ctx.secrets.value);
+  if (anyLogin(credsOf(ctx.secrets.value))) {
+    await rm(file, { force: true }); // already moved: the secrets win
+    return credsOf(ctx.secrets.value);
+  }
+  if (anyLogin(legacy)) await saveCreds(ctx, legacy);
+  if (!hostHasSecrets) return legacy;
+  await rm(file, { force: true });
+  if (anyLogin(legacy)) await ctx.log('info', 'Moved the switch logins into the module secrets');
+  return legacy;
 }
 
 async function saveCreds(ctx: C, c: Credentials): Promise<void> {
-  const file = credsFile(ctx);
+  const clean = c.shared ? { shared: c.shared, perSwitch: c.perSwitch } : { perSwitch: c.perSwitch };
+  if (hostHasSecrets) {
+    try {
+      return await ctx.secrets.set(clean);
+    } catch (e: any) {
+      if (e?.reason !== 'method_not_found') throw e;
+      hostHasSecrets = false;
+    }
+  }
+  const file = path.join(ctx.dataDir, LEGACY_FILE);
   await mkdir(ctx.dataDir, { recursive: true });
   // Written aside and renamed, so a crash or a second save never leaves half a file.
   const tmp = `${file}.${process.pid}.${randomBytes(3).toString('hex')}`;
-  await writeFile(tmp, JSON.stringify(c), { mode: 0o600 });
+  await writeFile(tmp, JSON.stringify(clean), { mode: 0o600 });
   await chmod(tmp, 0o600).catch(() => {});
   await rename(tmp, file);
 }

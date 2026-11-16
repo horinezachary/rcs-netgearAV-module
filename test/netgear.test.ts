@@ -1,4 +1,5 @@
-import { readFile } from 'node:fs/promises';
+import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import os from 'node:os';
 import path from 'node:path';
 import { startTestModule, type TestModule } from '@rcs/module-sdk/testing';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -48,7 +49,7 @@ async function startModule(ports: number[], extra: { allow?: boolean; state?: St
   await sim.settle();
   await until(() => sim!.strip.length > 0);
   if (extra.login !== false) {
-    // The test controller has no data folder files yet: give the shared login as the web view would.
+    // The test controller starts with no secrets: give the shared login as the web view would.
     await sim.sendUi({ type: 'credentials', which: 'shared', username: 'admin', password: 'pw' });
     await until(() => last()?.switches.every((s: any) => s.ready), 6000, 'for the switches');
     await sim.settle();
@@ -225,15 +226,35 @@ describe('module', () => {
     expect(writes(b.mock)).toEqual([]);
   });
 
-  it('keeps logins out of config and state, in a private file', async () => {
+  it('keeps logins out of config and state, in the module secrets', async () => {
     const a = await startMock();
     await startModule([a.port]);
     expect(JSON.stringify(sim!.config)).not.toContain('pw');
     expect(JSON.stringify(sim!.state)).not.toContain('pw');
     expect(sim!.config.switches[0]!.fingerprint).toMatch(/:/); // pinned
-    const file = path.join(sim!.dataDir, 'credentials.json');
-    expect(JSON.parse(await readFile(file, 'utf8'))).toEqual({ shared: { username: 'admin', password: 'pw' }, perSwitch: {} });
+    expect(sim!.secrets).toEqual({ shared: { username: 'admin', password: 'pw' }, perSwitch: {} });
     expect(JSON.stringify(sim!.uiMessages)).not.toContain('"pw"');
+  });
+
+  it('keeps credentials.json on a controller without secrets', async () => {
+    const dataDir = await mkdtemp(path.join(os.tmpdir(), 'netgear-old-host-'));
+    const login = { username: 'admin', password: 'pw' };
+    await writeFile(path.join(dataDir, 'credentials.json'), JSON.stringify({ shared: login, perSwitch: {} }));
+    sim = await startTestModule(mod, { config: { switches: [], allowChanges: false }, dataDir, noSecrets: true });
+    await until(() => sim!.strip.length > 0);
+    expect(last().shared).toBe('admin');
+    expect(JSON.parse(await readFile(path.join(dataDir, 'credentials.json'), 'utf8'))).toEqual({ shared: login, perSwitch: {} });
+    expect(sim.errors).toEqual([]);
+  });
+
+  it('moves credentials.json from an older version into the secrets', async () => {
+    const dataDir = await mkdtemp(path.join(os.tmpdir(), 'netgear-legacy-'));
+    const login = { username: 'admin', password: 'pw' };
+    await writeFile(path.join(dataDir, 'credentials.json'), JSON.stringify({ shared: login, perSwitch: { abc: login } }));
+    sim = await startTestModule(mod, { config: { switches: [], allowChanges: false }, dataDir });
+    await until(() => sim!.strip.length > 0); // drawn after the logins are loaded
+    expect(sim.secrets).toEqual({ shared: login, perSwitch: { abc: login } });
+    await expect(readFile(path.join(dataDir, 'credentials.json'))).rejects.toThrow();
   });
 
   it('stages VLANs on the keys and applies them only on a held SAVE', async () => {
@@ -331,7 +352,7 @@ describe('module', () => {
     expect(sim!.config.switches).toEqual([]);
     await sim!.settle();
     await new Promise((r) => setTimeout(r, 100));
-    expect(JSON.parse(await readFile(path.join(sim!.dataDir, 'credentials.json'), 'utf8')).perSwitch).toEqual({});
+    expect(sim!.secrets.perSwitch).toEqual({});
     expect(writes(a.mock)).toEqual([]);
   });
 });
