@@ -5,6 +5,7 @@
   "description": "Find, watch and manage Netgear AV Line switches: ports, VLANs, PoE and health",
   "icon": "assets/icon.svg",
   "apiVersion": 1,
+  "host": { "min": "0.14.0" },
   "entry": "dist/index.js",
   "ui": "ui",
   "configSchema": "config.schema.json",

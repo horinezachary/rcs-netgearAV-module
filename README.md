@@ -30,8 +30,11 @@ Changes go to the switch's running config, as they do from the switch's own web 
 at once but are lost at the next reboot until saved: the module marks a switch it changed as
 **Not saved** and offers **Save to startup** (with a confirmation) until it is.
 
-Logins are kept in the module's data folder (`credentials.json`, mode 600), never in config, so they
-are never in a save. Module Reset or a factory reset removes them. The web view can show a stored
+Logins are module secrets (host 0.14.0 or later): the controller keeps them apart from state and
+config. Named saves include them, so restoring a save or loading it on another unit brings the logins
+back. A downloaded save carries them only sealed with a passphrase you pick, or not at all. Module
+Reset or a factory reset removes them. Earlier versions kept them in `credentials.json` in the data
+folder; the first start after updating moves them into the secrets. The web view can show a stored
 password after the system PIN is entered at the panel (a browser signed in with the PIN is not asked
 again), and only to the browser that asked.
 
