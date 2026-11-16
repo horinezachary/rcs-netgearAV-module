@@ -1,0 +1,540 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      body { padding: 24px; }
+      section { display: flex; flex-direction: column; gap: 16px; max-width: 1600px; }
+      header { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+      .device { font: 14px var(--rcs-mono); color: var(--rcs-muted); }
+      .grow { flex: 1; }
+      p, .note { margin: 0; color: var(--rcs-muted); font-size: 15px; line-height: 1.5; }
+      .card { border: 1px solid var(--rcs-border); border-radius: 14px; background: var(--rcs-surface); padding: 16px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+      .row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+      .good { color: var(--rcs-ok); }
+      .bad { color: var(--rcs-error); }
+      .warn { color: var(--rcs-warn); }
+      input[type=text], input[type=password], select { min-height: 44px; border-radius: 10px; border: 1px solid var(--rcs-border); background: var(--rcs-bg); color: var(--rcs-text);
+        padding: 0 12px; font: 16px var(--rcs-font); min-width: 0; box-sizing: border-box; }
+      input:focus, select:focus { outline: 2px solid var(--rcs-accent); border-color: transparent; }
+      label.f { display: flex; flex-direction: column; gap: 6px; font-size: 14px; color: var(--rcs-muted); }
+      table { width: 100%; border-collapse: collapse; }
+      th { text-align: left; font-size: 13px; font-weight: 600; color: var(--rcs-muted); padding: 8px; border-bottom: 1px solid var(--rcs-border); white-space: nowrap; }
+      td { padding: 7px 8px; border-bottom: 1px solid var(--rcs-border); font-size: 15px; }
+      td.mono { font-family: var(--rcs-mono); color: var(--rcs-muted); white-space: nowrap; }
+      td .acts { display: flex; gap: 6px; flex-wrap: nowrap; justify-content: flex-end; }
+      td .acts rcs-button { white-space: nowrap; }
+      .scrollx { overflow-x: auto; }
+      .badge { font: 600 12px var(--rcs-font); letter-spacing: 0.06em; padding: 3px 8px; border-radius: 6px; border: 1px solid currentColor; white-space: nowrap; }
+      .dot { display: inline-block; width: 9px; height: 9px; border-radius: 5px; background: var(--rcs-muted); margin-right: 7px; vertical-align: middle; }
+      .dot.up { background: var(--rcs-ok); }
+      .dot.down { background: var(--rcs-error); }
+      .vdot { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 8px; vertical-align: middle; }
+
+      .switches { display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 16px; }
+      .sw .top { display: flex; align-items: center; gap: 10px; }
+      .sw .n { font-size: 19px; font-weight: 700; }
+      .sw dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 4px 16px; font-size: 14px; }
+      .sw dt { color: var(--rcs-muted); }
+      .sw dd { margin: 0; font-family: var(--rcs-mono); }
+      svg.spark { width: 100%; height: 70px; display: block; }
+      .legend { display: flex; gap: 16px; font-size: 13px; color: var(--rcs-muted); }
+      .swatch { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; }
+
+      .tabs { display: flex; gap: 8px; flex-wrap: wrap; }
+      .tabs button { min-height: 44px; padding: 0 16px; border-radius: 10px; font: 600 15px var(--rcs-font); color: var(--rcs-text); background: var(--rcs-surface); border: 1px solid var(--rcs-border); cursor: pointer; }
+      .tabs button[aria-pressed=true] { border-color: var(--rcs-accent); color: var(--rcs-accent); }
+      .front { display: grid; gap: 4px; padding: 10px; background: #0f1012; border-radius: 10px; border: 1px solid var(--rcs-border); }
+      .front button { height: 34px; border-radius: 5px; border: 1px solid var(--rcs-border); font: 600 12px var(--rcs-mono); color: var(--rcs-text); cursor: pointer; min-width: 0; padding: 0; }
+      .front button.down { opacity: 0.5; }
+      .front button.hl { outline: 2px solid var(--rcs-accent); }
+      tr.pending td { background: color-mix(in srgb, var(--rcs-accent) 8%, transparent); }
+      tr.hl td { background: color-mix(in srgb, var(--rcs-text) 6%, transparent); }
+      td select { width: 100%; min-width: 150px; }
+      td.nm { white-space: nowrap; max-width: 180px; overflow: hidden; text-overflow: ellipsis; }
+      td.fit { width: 1%; white-space: nowrap; }
+
+      .setup { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 24px; align-items: start; }
+      .pw { font: 700 18px var(--rcs-mono); word-break: break-all; }
+    </style>
+  </head>
+  <body>
+    <!-- The web view's pages. The switch and unsaved VLAN picks here belong to this browser, so
+         browsing never moves the panel; everything shown is read from the switches. -->
+    <header style="margin-bottom: 20px">
+      <span class="device" id="device"></span>
+      <rcs-status id="status" connection="disconnected"></rcs-status>
+    </header>
+
+    <section id="page-overview">
+      <p id="ovNote"></p>
+      <div class="switches" id="switches"></div>
+    </section>
+
+    <section id="page-ports" hidden>
+      <div class="row"><div class="tabs grow" id="swTabs" role="group" aria-label="Switch"></div><rcs-button id="saveStartup" size="small" variant="primary" hidden>Save to startup config</rcs-button></div>
+      <p id="portNote"></p>
+      <div class="front" id="front" aria-label="Front panel"></div>
+      <div class="row">
+        <p id="pickNote" class="grow"></p>
+        <rcs-button id="revert" size="small" hidden>Revert</rcs-button>
+        <rcs-button id="apply" size="small" variant="primary" hidden>Apply</rcs-button>
+      </div>
+      <div class="card scrollx">
+        <table>
+          <thead><tr><th>Port</th><th>Name</th><th>Link</th><th>Traffic</th><th>Access VLAN</th><th>Tagged</th><th>PoE</th><th>LLDP neighbor</th><th></th></tr></thead>
+          <tbody id="ports"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="page-discover" hidden>
+      <div class="row"><rcs-button id="search" size="small" variant="primary">Search</rcs-button><rcs-button id="scan" size="small">Scan subnet</rcs-button><span class="note" id="searching"></span></div>
+      <p>Search asks AV Line switches on this unit's network to answer (NSDP, as the Netgear tools do). Scan subnet tries every address on the unit's subnets for the switch API on port 8443: it only opens a connection and sends no login. Switches on other routed VLANs can be added by address in Setup.</p>
+      <div class="card scrollx">
+        <table>
+          <thead><tr><th>Name</th><th>Model</th><th>Address</th><th>MAC</th><th>Firmware</th><th>Found by</th><th></th></tr></thead>
+          <tbody id="found"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="page-setup" hidden>
+      <div class="setup">
+        <div class="card">
+          <strong>Add a switch</strong>
+          <label class="f">Address (IP or host name)<input type="text" id="address" placeholder="192.168.0.239" autocomplete="off" /></label>
+          <label class="f">API port<input type="text" id="port" inputmode="numeric" placeholder="8443" /></label>
+          <p>The switch REST API listens on 8443. It is on by default on current AV Line firmware.</p>
+          <div class="row"><rcs-button id="add" size="small" variant="primary">Add</rcs-button></div>
+        </div>
+        <div class="card">
+          <strong>Shared login</strong>
+          <p>Used by every switch that has no login of its own. For switches onboarded to NETGEAR Engage, this is the Engage site password (user admin): Engage sets it on each switch it manages. Kept on the unit only, never in saves.</p>
+          <label class="f">Username<input type="text" id="sharedUser" autocomplete="off" placeholder="admin" /></label>
+          <label class="f">Password<input type="password" id="sharedPass" autocomplete="new-password" /></label>
+          <div class="row"><rcs-button id="saveShared" size="small" variant="primary">Save</rcs-button><rcs-button id="showShared" size="small" hidden>Show password</rcs-button><rcs-button id="clearShared" size="small" variant="danger" hidden>Remove</rcs-button><span class="note" id="sharedState"></span></div>
+          <div id="sharedReveal" hidden></div>
+        </div>
+        <div class="card">
+          <strong>Permissions</strong>
+          <div class="row"><rcs-toggle id="allowChanges" label="Allow changes"></rcs-toggle><span>Allow changes</span></div>
+          <p>Off: the module only reads. On: the panel and this page can set port VLANs, turn PoE on and off, power cycle PoE, shut down ports and save the running config, each after a confirmation.</p>
+        </div>
+      </div>
+      <div class="card scrollx">
+        <strong>Switches</strong>
+        <table>
+          <thead><tr><th>Switch</th><th>Address</th><th>Status</th><th>Login</th><th>Certificate</th><th></th></tr></thead>
+          <tbody id="swList"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <rcs-dialog id="confirm">
+      <span id="confirmText"></span>
+      <div slot="buttons">
+        <rcs-button id="no">Cancel</rcs-button>
+        <rcs-button id="yes" variant="primary">OK</rcs-button>
+      </div>
+    </rcs-dialog>
+
+    <rcs-dialog id="loginDlg">
+      <strong id="loginTitle"></strong>
+      <p>Leave empty and press Use shared to fall back to the shared login.</p>
+      <label class="f">Username<input type="text" id="loginUser" autocomplete="off" placeholder="admin" /></label>
+      <label class="f">Password<input type="password" id="loginPass" autocomplete="new-password" /></label>
+      <div id="loginReveal" hidden></div>
+      <div slot="buttons">
+        <rcs-button id="loginCancel">Cancel</rcs-button>
+        <rcs-button id="loginShow" hidden>Show password</rcs-button>
+        <rcs-button id="loginShared">Use shared</rcs-button>
+        <rcs-button id="loginSave" variant="primary">Save</rcs-button>
+      </div>
+    </rcs-dialog>
+
+    <script type="module">
+      const $ = (id) => document.getElementById(id);
+      const PAGES = ['overview', 'ports', 'discover', 'setup'];
+      const VLAN_COLORS = ['#8C95A1', '#5B8DEF', '#B57BFF', '#3DD68C', '#FF8A4C', '#4CC9F0', '#FF6B9A', '#D4D46A', '#A0E26B', '#E879F9', '#F87171', '#60A5FA'];
+      let s = null;
+      let page = 'overview';
+      let sw = null; // this browser's switch detail, from get-switch
+      let swId = '';
+      let hl = 0; // port highlighted from the front panel
+      const picks = new Map(); // this browser's unsaved picks: port -> VLAN
+      let onYes = null;
+      let loginFor = '';
+
+      function el(tag, attrs = {}, text) {
+        const e = document.createElement(tag);
+        for (const [k, v] of Object.entries(attrs)) {
+          if (v === true) e.setAttribute(k, '');
+          else if (v !== false && v != null) e.setAttribute(k, String(v));
+        }
+        if (text != null) e.textContent = text;
+        return e;
+      }
+      function button(label, variant, onclick, disabled = false) {
+        const b = el('rcs-button', { size: 'small', variant, disabled }, label);
+        b.onclick = onclick;
+        return b;
+      }
+      function ask(text, label, variant, fn) {
+        $('confirmText').textContent = text;
+        $('yes').textContent = label;
+        $('yes').setAttribute('variant', variant);
+        onYes = fn;
+        $('confirm').show();
+      }
+      $('no').onclick = () => $('confirm').close();
+      $('yes').onclick = () => {
+        $('confirm').close();
+        onYes?.();
+      };
+      const busy = (id) => document.activeElement?.closest?.('#' + id);
+
+      const vlanColor = (id) => {
+        const i = (sw?.vlans ?? []).findIndex((v) => v.id === id);
+        return i < 0 ? '#8C95A1' : VLAN_COLORS[i % VLAN_COLORS.length];
+      };
+      const vlanLabel = (id) => {
+        const v = sw?.vlans.find((x) => x.id === id);
+        return v?.name ? `${v.name} (${id})` : id ? `VLAN ${id}` : '–';
+      };
+      const speed = (m) => (m >= 1000 ? `${m / 1000} Gb/s` : m ? `${m} Mb/s` : '');
+      const rate = (m) => (m >= 1000 ? `${(m / 1000).toFixed(2)} G` : `${m >= 10 ? m.toFixed(0) : m.toFixed(1)} M`);
+      const swName = () => s.switches.find((x) => x.id === swId)?.name ?? '';
+
+      function spark(hist) {
+        const NS = 'http://www.w3.org/2000/svg';
+        const svg = document.createElementNS(NS, 'svg');
+        svg.setAttribute('class', 'spark');
+        svg.setAttribute('viewBox', '0 0 300 70');
+        svg.setAttribute('preserveAspectRatio', 'none');
+        svg.setAttribute('role', 'img');
+        const max = Math.max(10, ...hist.flat());
+        const now = hist.at(-1) ?? [0, 0];
+        svg.setAttribute('aria-label', `Traffic: in ${rate(now[0])}b/s, out ${rate(now[1])}b/s`);
+        const n = Math.max(hist.length - 1, 1);
+        for (const [k, color] of [[0, '#5B8DEF'], [1, '#F5A524']]) {
+          const l = document.createElementNS(NS, 'polyline');
+          l.setAttribute('points', hist.map((h, i) => `${((i / n) * 300).toFixed(1)},${(68 - (h[k] / max) * 66).toFixed(1)}`).join(' '));
+          l.setAttribute('fill', 'none');
+          l.setAttribute('stroke', color);
+          l.setAttribute('stroke-width', '2');
+          l.setAttribute('vector-effect', 'non-scaling-stroke');
+          svg.append(l);
+        }
+        return svg;
+      }
+
+      function drawOverview() {
+        $('ovNote').textContent = s.switches.length ? '' : 'No switches yet. Find them on the Discover page, or add one by address in Setup.';
+        $('switches').replaceChildren(
+          ...s.switches.map((w) => {
+            const card = el('div', { class: 'card sw' });
+            const top = el('div', { class: 'top' });
+            top.append(el('span', { class: 'dot ' + (w.ready ? 'up' : 'down') }), el('span', { class: 'n' }, w.name), el('div', { style: 'flex:1' }));
+            if (w.unsaved) top.append(el('span', { class: 'badge warn' }, 'NOT SAVED TO STARTUP'));
+            if (w.faults) top.append(el('span', { class: 'badge bad' }, `${w.faults} POE FAULT${w.faults > 1 ? 'S' : ''}`));
+            card.append(top);
+            if (!w.ready) {
+              card.append(el('p', { class: 'bad' }, w.certificateSeen ? 'The certificate changed: check it, then trust it in Setup.' : w.statusText || 'Connecting…'), el('p', {}, `${w.address}:${w.port}`));
+            } else {
+              const i = w.info ?? {};
+              const dl = el('dl');
+              const rows = [
+                ['Model', i.model || '–'],
+                ['Address', `${w.address}${w.port !== 8443 ? ':' + w.port : ''}`],
+                ['MAC · serial', [i.mac, i.serial].filter(Boolean).join(' · ') || '–'],
+                ['Firmware', i.firmware || '–'],
+                ['Uptime', i.uptime || '–'],
+                ['Ports up', `${w.portsUp} of ${w.portCount}`],
+                ['PoE', i.poeDraw != null ? `${i.poeDraw} W${i.poeBudget ? ` of ${i.poeBudget} W` : ''} · ${w.poeOn} ports powered` : 'none'],
+                ['CPU · memory', `${i.cpu || '–'} · ${i.memory || '–'}`],
+                ['Temperature', i.temp != null ? `${i.temp} °C${i.tempState ? ' · ' + i.tempState : ''}` : '–'],
+                ['Fans', i.fan || '–']
+              ];
+              for (const [k, v] of rows) dl.append(el('dt', {}, k), el('dd', {}, v));
+              const legend = el('div', { class: 'legend' });
+              const now = w.history.at(-1) ?? [0, 0];
+              const a = el('span'); a.append(el('span', { class: 'swatch', style: 'background:#5B8DEF' }), `In ${rate(now[0])}b/s`);
+              const b = el('span'); b.append(el('span', { class: 'swatch', style: 'background:#F5A524' }), `Out ${rate(now[1])}b/s`);
+              legend.append(a, b);
+              card.append(dl, legend, spark(w.history));
+            }
+            return card;
+          })
+        );
+      }
+
+      function wantSwitch() {
+        if (!s.switches.some((w) => w.id === swId)) swId = s.switches[0]?.id ?? '';
+        if (swId) rcs.send({ type: 'get-switch', id: swId });
+      }
+
+      function drawPorts() {
+        const w = s.switches.find((x) => x.id === swId);
+        $('swTabs').replaceChildren(
+          ...s.switches.map((d) => {
+            const b = el('button', { 'aria-pressed': String(d.id === swId) }, d.name);
+            const go = () => {
+              picks.clear();
+              swId = d.id;
+              sw = null;
+              hl = 0;
+              rcs.send({ type: 'get-switch', id: d.id });
+              drawPorts();
+            };
+            b.onclick = () => {
+              if (d.id === swId) return;
+              if (picks.size) ask(`Drop ${picks.size} unsaved VLAN change${picks.size > 1 ? 's' : ''} on ${swName()}?`, 'Drop', 'danger', go);
+              else go();
+            };
+            return b;
+          })
+        );
+        const allow = s.allowChanges;
+        $('saveStartup').hidden = !(w?.unsaved && allow);
+        $('portNote').textContent = !w ? 'No switches yet.' : !w.ready ? w.statusText || 'Connecting…' : !allow ? 'View only. Turn on Allow changes in Setup to change ports here.' : '';
+        $('pickNote').textContent = picks.size
+          ? `${picks.size} unsaved VLAN change${picks.size > 1 ? 's' : ''} on ${swName()}. Nothing changes until you press Apply.`
+          : allow && w?.ready ? 'Pick an access VLAN for any port, then press Apply. Tagged VLANs on the port stay as they are.' : '';
+        $('revert').hidden = $('apply').hidden = !picks.size;
+        $('apply').textContent = `Apply ${picks.size}`;
+        if (!sw || sw.id !== swId || !w?.ready) {
+          $('front').hidden = true;
+          return $('ports').replaceChildren();
+        }
+        $('front').hidden = false;
+        const byIdx = new Map(sw.ports.map((p) => [p.idx, p]));
+        const cols = Math.max(...sw.layout.map((r) => r.length));
+        $('front').style.gridTemplateColumns = `repeat(${cols}, minmax(0, 1fr))`;
+        $('front').replaceChildren(
+          ...sw.layout.flatMap((row, r) =>
+            row.map((idx, c) => {
+              const p = byIdx.get(idx);
+              const v = picks.get(idx) ?? p.pvid;
+              const b = el('button', { class: (p.up ? '' : 'down') + (idx === hl ? ' hl' : ''), title: `Port ${idx}: ${vlanLabel(v)}${p.name ? ' · ' + p.name : ''}` }, String(idx));
+              b.style.gridRow = String(r + 1);
+              b.style.gridColumn = String(c + 1);
+              b.style.background = `color-mix(in srgb, ${vlanColor(v)} ${p.up ? 45 : 15}%, #16181c)`;
+              b.onclick = () => {
+                hl = idx;
+                drawPorts();
+                document.getElementById('port-' + idx)?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+              };
+              return b;
+            })
+          )
+        );
+        if (busy('ports')) return;
+        $('ports').replaceChildren(
+          ...sw.ports.map((p) => {
+            const shown = picks.get(p.idx) ?? p.pvid;
+            const tr = el('tr', { id: 'port-' + p.idx, class: picks.has(p.idx) ? 'pending' : p.idx === hl ? 'hl' : '' });
+            const link = el('td', { class: 'mono' });
+            link.append(el('span', { class: 'dot' + (p.up ? ' up' : '') }), !p.enabled ? 'shut down' : p.up ? speed(p.speed) || 'up' : p.sfp ? 'SFP, no link' : 'no link');
+            const vlan = el('td');
+            if (allow) {
+              const sel = el('select', { 'aria-label': `Port ${p.idx} access VLAN` });
+              for (const v of sw.vlans) sel.append(el('option', { value: v.id, selected: v.id === shown }, `${v.name || 'VLAN'} (${v.id})`));
+              sel.onchange = () => {
+                const v = Number(sel.value);
+                if (v === p.pvid) picks.delete(p.idx);
+                else picks.set(p.idx, v);
+                sel.blur();
+                drawPorts();
+              };
+              vlan.append(sel);
+            } else {
+              vlan.append(el('span', { class: 'vdot', style: `background:${vlanColor(shown)}` }), vlanLabel(shown));
+            }
+            const poe = el('td', { class: 'mono', title: p.poe ? p.poe.status : '' }, p.poe ? (p.poe.watts ? p.poe.watts.toFixed(1) + ' W' : p.poe.status) : '–');
+            if (p.poe && /Fault|Overload/.test(p.poe.status)) poe.className = 'mono bad';
+            const acts = el('div', { class: 'acts' });
+            const who = p.name || p.neighbor || 'the device on it';
+            if (p.poe) {
+              acts.append(
+                button(p.poe.enabled ? 'PoE off' : 'PoE on', p.poe.enabled ? 'danger' : undefined, () =>
+                  ask(p.poe.enabled ? `Turn PoE off on port ${p.idx} of ${swName()}? ${who} loses power.` : `Turn PoE on for port ${p.idx} of ${swName()}?`, p.poe.enabled ? 'Turn off' : 'Turn on', p.poe.enabled ? 'danger' : 'primary', () =>
+                    rcs.send({ type: 'poe', id: swId, idx: p.idx, on: !p.poe.enabled })
+                  ), !allow),
+                button('Cycle', 'danger', () => ask(`Power cycle port ${p.idx} of ${swName()}? ${who} restarts.`, 'Power cycle', 'danger', () => rcs.send({ type: 'cycle', id: swId, idx: p.idx })), !allow || !p.poe.enabled)
+              );
+            }
+            acts.append(
+              button(p.enabled ? 'Shut' : 'Enable', p.enabled ? 'danger' : 'primary', () =>
+                ask(p.enabled ? `Shut down port ${p.idx} of ${swName()}? ${who} goes offline.` : `Enable port ${p.idx} of ${swName()}?`, p.enabled ? 'Shut down' : 'Enable', p.enabled ? 'danger' : 'primary', () =>
+                  rcs.send({ type: 'port-enabled', id: swId, idx: p.idx, on: !p.enabled })
+                ), !allow)
+            );
+            const actsTd = el('td', { class: 'fit' });
+            actsTd.append(acts);
+            const tagged = p.vlans.filter((v) => v !== p.pvid);
+            tr.append(
+              el('td', { class: 'mono' }, String(p.idx)),
+              el('td', { class: 'nm', title: p.name }, p.name || '–'),
+              link,
+              el('td', { class: 'mono' }, p.up ? `↓${rate(p.rx)} ↑${rate(p.tx)}` : '–'),
+              vlan,
+              el('td', { class: 'mono', title: tagged.join(', ') }, tagged.length > 3 ? `${tagged.length} VLANs` : tagged.length ? tagged.join(', ') : '–'),
+              poe,
+              el('td', { class: 'nm' }, p.neighbor ? `${p.neighbor}${p.neighborPort ? ' · ' + p.neighborPort : ''}` : '–'),
+              actsTd
+            );
+            return tr;
+          })
+        );
+      }
+      $('revert').onclick = () => (picks.clear(), drawPorts());
+      $('apply').onclick = () => {
+        const list = [...picks].map(([idx, v]) => `port ${idx} → ${vlanLabel(v)}`).join(', ');
+        ask(`Change ${picks.size} port${picks.size > 1 ? 's' : ''} on ${swName()}: ${list}? Devices on ${picks.size > 1 ? 'them' : 'it'} move networks.`, 'Apply', 'primary', () =>
+          rcs.send({ type: 'apply-vlans', id: swId, changes: [...picks].map(([idx, vlan]) => ({ idx, vlan })) })
+        );
+      };
+      $('saveStartup').onclick = () =>
+        ask(`Save the running config of ${swName()} to its startup config? Changes made here are live now but are lost at the next reboot until saved.`, 'Save', 'primary', () => rcs.send({ type: 'save-config', id: swId }));
+
+      function drawDiscover() {
+        $('search').toggleAttribute('disabled', !!s.searching);
+        $('scan').toggleAttribute('disabled', !!s.searching);
+        $('searching').textContent = s.searching === 'scan' ? 'Scanning…' : s.searching ? 'Searching…' : '';
+        if (!s.found.length) {
+          const tr = el('tr');
+          tr.append(el('td', { colspan: 7 }, s.searching ? 'Searching…' : 'Nothing found yet.'));
+          return $('found').replaceChildren(tr);
+        }
+        $('found').replaceChildren(
+          ...s.found.map((f) => {
+            const match = s.switches.find((w) => w.address === f.address && w.port === (f.apiPort || 8443));
+            const added = !!match;
+            const tr = el('tr');
+            const td = el('td');
+            td.append(button(added ? 'Added' : 'Add', added ? undefined : 'primary', () => rcs.send({ type: 'add', address: f.address, port: f.apiPort || 8443, label: f.name }), added));
+            tr.append(
+              el('td', {}, f.name || match?.name || '–'),
+              el('td', { class: 'mono' }, f.model || match?.model || '–'),
+              el('td', { class: 'mono' }, f.address + (f.apiPort && f.apiPort !== 8443 ? ':' + f.apiPort : '')),
+              el('td', { class: 'mono' }, f.mac || '–'),
+              el('td', { class: 'mono' }, f.firmware || '–'),
+              el('td', {}, f.via.map((v) => (v === 'nsdp' ? 'search' : 'API port')).join(', ')),
+              td
+            );
+            return tr;
+          })
+        );
+      }
+
+      function revealBox(box, m) {
+        box.hidden = false;
+        box.replaceChildren(el('p', {}, `User ${m.username}`), el('span', { class: 'pw' }, m.password));
+        setTimeout(() => (box.hidden = true, box.replaceChildren()), 60_000);
+      }
+
+      function drawSetup() {
+        $('allowChanges').checked = s.allowChanges;
+        $('sharedState').textContent = s.shared ? `Set: ${s.shared}` : 'Not set';
+        $('showShared').hidden = $('clearShared').hidden = !s.shared;
+        if (!s.switches.length) {
+          const tr = el('tr');
+          tr.append(el('td', { colspan: 6 }, 'No switches yet.'));
+          return $('swList').replaceChildren(tr);
+        }
+        $('swList').replaceChildren(
+          ...s.switches.map((w) => {
+            const tr = el('tr');
+            const status = el('td', { class: w.ready ? 'good' : 'bad' }, w.ready ? 'Connected' : w.statusText || w.connection);
+            const login = w.login === 'own' ? `Own: ${w.username}` : w.login === 'shared' ? `Shared: ${w.username}` : 'None';
+            const fp = (f) => (f ? f.split(':').slice(0, 6).join(':') + '…' : 'trusted on first connect');
+            const acts = el('div', { class: 'acts' });
+            acts.append(button('Login', undefined, () => openLogin(w)));
+            if (w.certificateSeen) acts.append(button('Trust new certificate', 'danger', () => ask(`${w.name} now presents ${w.certificateSeen}. Trust it only if the switch or its certificate was replaced.`, 'Trust', 'danger', () => rcs.send({ type: 'trust', id: w.id }))));
+            acts.append(button('Remove', 'danger', () => ask(`Remove ${w.name} from this module? Nothing changes on the switch.`, 'Remove', 'danger', () => rcs.send({ type: 'remove', id: w.id }))));
+            const td = el('td');
+            td.append(acts);
+            tr.append(el('td', {}, w.name), el('td', { class: 'mono' }, `${w.address}:${w.port}`), status, el('td', {}, login), el('td', { class: 'mono' }, fp(w.fingerprint)), td);
+            return tr;
+          })
+        );
+      }
+
+      function openLogin(w) {
+        loginFor = w.id;
+        $('loginTitle').textContent = `Login for ${w.name}`;
+        $('loginUser').value = w.login === 'own' ? w.username : '';
+        $('loginPass').value = '';
+        $('loginReveal').hidden = true;
+        $('loginShow').hidden = w.login !== 'own';
+        $('loginShared').hidden = w.login !== 'own';
+        $('loginDlg').show();
+      }
+      $('loginCancel').onclick = () => $('loginDlg').close();
+      $('loginSave').onclick = () => {
+        rcs.send({ type: 'credentials', which: loginFor, username: $('loginUser').value.trim() || 'admin', password: $('loginPass').value });
+        $('loginDlg').close();
+      };
+      $('loginShared').onclick = () => {
+        rcs.send({ type: 'credentials', which: loginFor, clear: true });
+        $('loginDlg').close();
+      };
+      $('loginShow').onclick = () => rcs.send({ type: 'reveal', which: loginFor });
+
+      function draw() {
+        if (!s) return;
+        const up = s.switches.filter((w) => w.ready).length;
+        $('status').setAttribute('connection', !s.switches.length ? 'disconnected' : up === s.switches.length ? 'connected' : up ? 'connecting' : 'disconnected');
+        $('status').textContent = s.switches.length ? `${up} of ${s.switches.length} switches connected` : 'No switches';
+        $('device').textContent = 'Netgear AV Line';
+        for (const id of PAGES) $('page-' + id).hidden = id !== page;
+        if (page === 'overview') drawOverview();
+        if (page === 'ports') drawPorts();
+        if (page === 'discover') drawDiscover();
+        if (page === 'setup') drawSetup();
+      }
+
+      function show(p) {
+        page = PAGES.includes(p) ? p : 'overview';
+        if (page === 'ports' && s) wantSwitch();
+        draw();
+      }
+
+      $('search').onclick = () => rcs.send({ type: 'search', how: 'nsdp' });
+      $('scan').onclick = () => rcs.send({ type: 'search', how: 'scan' });
+      $('add').onclick = () => {
+        rcs.send({ type: 'add', address: $('address').value.trim(), port: Number($('port').value) || 8443 });
+        $('address').value = $('port').value = '';
+      };
+      $('saveShared').onclick = () => {
+        rcs.send({ type: 'credentials', which: 'shared', username: $('sharedUser').value.trim() || 'admin', password: $('sharedPass').value });
+        $('sharedUser').value = $('sharedPass').value = '';
+      };
+      $('clearShared').onclick = () => ask('Remove the shared login? Switches without their own login stop reading until one is set.', 'Remove', 'danger', () => rcs.send({ type: 'credentials', which: 'shared', clear: true }));
+      $('showShared').onclick = () => rcs.send({ type: 'reveal', which: 'shared' });
+      $('allowChanges').addEventListener('change', (e) => rcs.send({ type: 'allow', on: e.detail }));
+
+      const info = await rcs.ready();
+      rcs.on('page', show);
+      rcs.on('message', (m) => {
+        if (m?.type === 'snapshot') {
+          s = m;
+          if (page === 'ports') wantSwitch();
+          draw();
+        } else if (m?.type === 'switch') {
+          if (m.switch?.id !== swId) return;
+          sw = m.switch;
+          for (const [idx, v] of picks) if (sw.ports.find((p) => p.idx === idx)?.pvid === v) picks.delete(idx); // already so
+          if (page === 'ports') drawPorts();
+        } else if (m?.type === 'applied') {
+          rcs.send({ type: 'get-switch', id: swId });
+        } else if (m?.type === 'reveal') {
+          revealBox(m.which === 'shared' ? $('sharedReveal') : $('loginReveal'), m);
+        }
+      });
+      show(info.page);
+      rcs.send({ type: 'hello' });
+    </script>
+  </body>
+</html>
