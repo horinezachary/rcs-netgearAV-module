@@ -11,7 +11,9 @@ too (see [Engage](#netgear-engage)).
   coloured by access VLAN, with link speed, PoE draw and what LLDP sees on the other end. Tap a port,
   pick its VLAN on keys 1 to 10, then hold SAVE (key 15). Hold key 13 to turn PoE on or off, key 14 to
   power cycle it. The screen has PoE, power cycle and shut down/enable buttons, each with a confirmation.
-  The web view has the whole port table with a VLAN menu per port and an Apply button.
+  The web view has the whole port table with a VLAN menu per port and an Apply button. On a larger
+  Stream Deck (XL 8×4, Stream Deck + XL 9×4, controller 0.21.0 or later) VLANs fill every row but the
+  bottom one, and PoE, power cycle and SAVE are the last three keys; Status and Discover list more switches.
 - **Discover**: switches on the unit's network, found by Netgear's discovery protocol (NSDP) or by a
   scan of the unit's subnets for the API port. Press a switch's key, or Add, to watch it.
 - **Setup**: switches by address, the Allow changes switch, and in the web view the logins.
