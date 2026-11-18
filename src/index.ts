@@ -20,6 +20,9 @@
 //               11/12 previous/next port, 13 hold: PoE on/off, 14 hold: PoE power cycle,
 //               15 hold: save the staged VLAN changes
 //   Discover    keys 6-15 switches found, press to add
+// A larger deck (XL 8×4, Stream Deck + XL 9×4) keeps the view keys on the top row and lists more
+// switches on every key after key 5; in Ports every row but the bottom one holds VLANs, and the bottom
+// row is ◀ PORT, PORT ▶, then PoE, power cycle and SAVE on its last three keys. See layout().
 
 import { randomBytes } from 'node:crypto';
 import { chmod, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
@@ -63,7 +66,39 @@ export type View = 'overview' | 'ports' | 'discover' | 'setup';
 const VIEWS: View[] = ['overview', 'ports', 'discover', 'setup'];
 const STRIP_VIEWS: View[] = ['overview', 'ports', 'discover'];
 
+/** The keys on a 15-key deck. layout() gives them for any deck. */
 export const KEY = { OVERVIEW: 0, PORTS: 1, DISCOVER: 2, MORE: 9, PREV: 10, NEXT: 11, POE: 12, CYCLE: 13, SAVE: 14 } as const;
+
+export interface Grid {
+  columns: number;
+  rows: number;
+}
+
+/**
+ * The deck's grid. Read from ctx.host, not ctx.deck: a unit runs modules with its own controller's
+ * SDK, and one before 0.21.0 has no ctx.deck and reports no columns or rows (5 × 3).
+ */
+export function grid(ctx: { host: { deck: { columns?: number; rows?: number } } }): Grid {
+  return { columns: ctx.host?.deck?.columns ?? 5, rows: ctx.host?.deck?.rows ?? 3 };
+}
+
+/** Where everything goes on a deck. For 5 × 3 this is KEY. */
+export function layout(g: Grid) {
+  const keys = g.columns * g.rows;
+  const bottom = (g.rows - 1) * g.columns;
+  return {
+    keys,
+    /** Switches in Overview and Discover: every key after the first five. */
+    list: keys - 5,
+    /** Ports: VLAN keys, every row but the bottom one. The last one pages. */
+    vlans: bottom,
+    prev: bottom,
+    next: bottom + 1,
+    poe: keys - 3,
+    cycle: keys - 2,
+    save: keys - 1
+  };
+}
 const HOLD_MS = 700;
 export const MAX_SWITCHES = 16;
 const API_PORT = 8443;
@@ -291,8 +326,8 @@ function navFaces(): KeySetParams[] {
   return [nav(KEY.OVERVIEW, 'STATUS', 'overview'), nav(KEY.PORTS, 'PORTS', 'ports'), nav(KEY.DISCOVER, 'FIND', 'discover'), { index: 3 }, { index: 4 }];
 }
 
-function vlanPaging(n: number): { perPage: number; pages: number } {
-  const perPage = n > 10 ? 9 : 10;
+function vlanPaging(n: number, keys = 10): { perPage: number; pages: number } {
+  const perPage = n > keys ? keys - 1 : keys;
   return { perPage, pages: Math.max(1, Math.ceil(n / perPage)) };
 }
 
@@ -306,21 +341,22 @@ function keyFaces(ctx: C): KeySetParams[] {
   const c = cfg(ctx);
   const cur = rt?.view ?? 'overview';
   const blanks = (from: number, to: number) => Array.from({ length: to - from }, (_, i) => ({ index: from + i }));
+  const L = layout(grid(ctx));
 
   if (cur === 'ports') {
     const e = currentEntry(ctx);
     if (!e || !isReady(e.id)) {
-      return [...navFaces(), ...blanks(5, 7), { index: 7, label: 'OFFLINE', sublabel: short(e?.address ?? 'no switch', 12), background: DANGER }, ...blanks(8, 15)];
+      return [...navFaces(), ...blanks(5, 7), { index: 7, label: 'OFFLINE', sublabel: short(e?.address ?? 'no switch', 12), background: DANGER }, ...blanks(8, L.keys)];
     }
     const v = viewOf(e.id);
     const port = selectedPort(ctx);
     const target = port ? rt!.pending.get(port.idx) ?? port.pvid : 0;
-    const { perPage, pages } = vlanPaging(v.vlans.length);
+    const { perPage, pages } = vlanPaging(v.vlans.length, L.vlans);
     const page = Math.min(rt!.vlanPage, pages - 1);
-    const faces: KeySetParams[] = [];
-    for (let k = 0; k < 10; k++) {
+    const faces: KeySetParams[] = blanks(L.vlans + 2, L.poe); // the middle of the bottom row
+    for (let k = 0; k < L.vlans; k++) {
       const vl = v.vlans[page * perPage + k];
-      if (k === KEY.MORE && pages > 1) faces.push({ index: k, label: 'MORE ▶', sublabel: `page ${page + 1}/${pages}` });
+      if (k === L.vlans - 1 && pages > 1) faces.push({ index: k, label: 'MORE ▶', sublabel: `page ${page + 1}/${pages}` });
       else if (k < perPage && vl && port) {
         const on = vl.id === target;
         faces.push({ index: k, label: short((vl.name || `VLAN ${vl.id}`).toUpperCase(), 10), sublabel: `VLAN ${vl.id}`, ...(on ? { background: ACCENT, color: ON_ACCENT } : {}) });
@@ -328,28 +364,28 @@ function keyFaces(ctx: C): KeySetParams[] {
     }
     const n = rt!.pending.size;
     const allow = c.allowChanges;
-    faces.push({ index: KEY.PREV, label: '◀ PORT', sublabel: port ? `port ${port.idx}` : '' });
-    faces.push({ index: KEY.NEXT, label: 'PORT ▶', sublabel: short(v.info?.name || e.label, 12) });
+    faces.push({ index: L.prev, label: '◀ PORT', sublabel: port ? `port ${port.idx}` : '' });
+    faces.push({ index: L.next, label: 'PORT ▶', sublabel: short(v.info?.name || e.label, 12) });
     if (port?.poe && allow) {
-      faces.push({ index: KEY.POE, label: port.poe.enabled ? 'POE OFF' : 'POE ON', sublabel: 'hold', ...(port.poe.enabled ? {} : { background: GOOD }) });
-      faces.push({ index: KEY.CYCLE, label: 'POE CYCLE', sublabel: 'hold', background: DANGER });
+      faces.push({ index: L.poe, label: port.poe.enabled ? 'POE OFF' : 'POE ON', sublabel: 'hold', ...(port.poe.enabled ? {} : { background: GOOD }) });
+      faces.push({ index: L.cycle, label: 'POE CYCLE', sublabel: 'hold', background: DANGER });
     } else {
-      faces.push({ index: KEY.POE, label: port?.poe ? (port.poe.enabled ? 'POE ON' : 'POE OFF') : 'NO POE', sublabel: port?.poe ? `${port.poe.watts} W` : '' });
-      faces.push({ index: KEY.CYCLE });
+      faces.push({ index: L.poe, label: port?.poe ? (port.poe.enabled ? 'POE ON' : 'POE OFF') : 'NO POE', sublabel: port?.poe ? `${port.poe.watts} W` : '' });
+      faces.push({ index: L.cycle });
     }
     faces.push(
       !allow
-        ? { index: KEY.SAVE, label: 'VIEW ONLY', sublabel: 'see Setup' }
+        ? { index: L.save, label: 'VIEW ONLY', sublabel: 'see Setup' }
         : n
-          ? { index: KEY.SAVE, label: 'SAVE', sublabel: `${n} · hold`, background: ACCENT, color: ON_ACCENT }
-          : { index: KEY.SAVE, label: 'SAVE', sublabel: 'nothing' }
+          ? { index: L.save, label: 'SAVE', sublabel: `${n} · hold`, background: ACCENT, color: ON_ACCENT }
+          : { index: L.save, label: 'SAVE', sublabel: 'nothing' }
     );
     return faces;
   }
 
   const faces = navFaces();
   if (cur === 'overview' || cur === 'setup') {
-    const list = c.switches.slice(0, 10).map(summary);
+    const list = c.switches.slice(0, L.list).map(summary);
     list.forEach((s, i) =>
       faces.push({
         index: 5 + i,
@@ -358,15 +394,15 @@ function keyFaces(ctx: C): KeySetParams[] {
         ...(!s.ready ? { background: DANGER } : s.faults ? { background: DANGER } : s.id === currentEntry(ctx)?.id ? {} : {})
       })
     );
-    faces.push(...blanks(5 + list.length, 15));
+    faces.push(...blanks(5 + list.length, L.keys));
   } else if (cur === 'discover') {
-    const list = (rt?.found ?? []).slice(0, 10);
+    const list = (rt?.found ?? []).slice(0, L.list);
     list.forEach((f, i) => {
       const known = knownEntry(ctx, f);
       const name = f.name || (known ? nameOf(known) : '') || f.model || f.address;
       faces.push({ index: 5 + i, label: short(name.toUpperCase(), 10), sublabel: known ? 'added' : short(f.address, 12), ...(known ? { background: GOOD } : {}) });
     });
-    faces.push(...blanks(5 + list.length, 15));
+    faces.push(...blanks(5 + list.length, L.keys));
   }
   return faces;
 }
@@ -706,11 +742,12 @@ export default defineModule<State, Config>({
   async key(ctx, { index, action }) {
     if (action !== 'down' || !rt) return;
     const cur = rt.view;
+    const L = layout(grid(ctx));
     if (cur === 'ports') {
       const e = currentEntry(ctx);
       const vlans = e ? viewOf(e.id).vlans : [];
-      const { perPage, pages } = vlanPaging(vlans.length);
-      if (index === KEY.MORE && pages > 1) {
+      const { perPage, pages } = vlanPaging(vlans.length, L.vlans);
+      if (index === L.vlans - 1 && pages > 1) {
         rt.vlanPage = (rt.vlanPage + 1) % pages;
         return draw(ctx);
       }
@@ -719,11 +756,11 @@ export default defineModule<State, Config>({
         if (vl) await pickVlan(ctx, vl.id);
         return;
       }
-      if (index === KEY.PREV) return stepPort(ctx, -1);
-      if (index === KEY.NEXT) return stepPort(ctx, 1);
+      if (index === L.prev) return stepPort(ctx, -1);
+      if (index === L.next) return stepPort(ctx, 1);
       if (cfg(ctx).allowChanges) {
-        if (index === KEY.SAVE && rt.pending.size) return ctx.notify('Hold SAVE to apply the port changes');
-        if ((index === KEY.POE || index === KEY.CYCLE) && selectedPort(ctx)?.poe) return ctx.notify('Hold the key to change PoE');
+        if (index === L.save && rt.pending.size) return ctx.notify('Hold SAVE to apply the port changes');
+        if ((index === L.poe || index === L.cycle) && selectedPort(ctx)?.poe) return ctx.notify('Hold the key to change PoE');
       }
       return;
     }
@@ -744,10 +781,19 @@ export default defineModule<State, Config>({
     if (!rt || rt.view !== 'ports') return;
     const e = currentEntry(ctx);
     const p = selectedPort(ctx);
-    if (index === KEY.SAVE) return savePending(ctx);
+    const L = layout(grid(ctx));
+    if (index === L.save) return savePending(ctx);
     if (!e || !p?.poe) return;
-    if (index === KEY.POE) return setPoe(ctx, e.id, p.idx, !p.poe.enabled);
-    if (index === KEY.CYCLE) return cyclePoe(ctx, e.id, p.idx);
+    if (index === L.poe) return setPoe(ctx, e.id, p.idx, !p.poe.enabled);
+    if (index === L.cycle) return cyclePoe(ctx, e.id, p.idx);
+  },
+
+  fullDeck: true,
+
+  // Another deck was plugged in: the keys move. VLAN pages are clamped as they are drawn.
+  async deck(ctx) {
+    await ctx.keys.clear();
+    await draw(ctx);
   },
 
   async strip(ctx, id) {

@@ -43,9 +43,12 @@ async function startMock(opts: MockOptions = {}): Promise<{ mock: MockSwitch; po
 
 const entry = (id: string, port: number) => ({ id, address: '127.0.0.1', port, fingerprint: '', label: '' });
 
-async function startModule(ports: number[], extra: { allow?: boolean; state?: State; reason?: 'boot' | 'restore' | 'user'; verifyPin?: (r: string, c?: string) => boolean; login?: boolean } = {}) {
+async function startModule(
+  ports: number[],
+  extra: { allow?: boolean; state?: State; reason?: 'boot' | 'restore' | 'user'; verifyPin?: (r: string, c?: string) => boolean; login?: boolean; deck?: { columns: number; rows: number } } = {}
+) {
   const config: Config = { switches: ports.map((p, i) => entry(`0000000${i + 1}`, p)), allowChanges: extra.allow ?? false };
-  sim = await startTestModule(mod, { config, state: extra.state, reason: extra.reason, verifyPin: extra.verifyPin });
+  sim = await startTestModule(mod, { config, state: extra.state, reason: extra.reason, verifyPin: extra.verifyPin, deck: extra.deck });
   await sim.settle();
   await until(() => sim!.strip.length > 0);
   if (extra.login !== false) {
@@ -278,6 +281,21 @@ describe('module', () => {
     await sim!.sendUi({ type: 'save-config', id: '00000001' });
     await until(() => last().switches[0].unsaved === false);
     expect(a.mock.saved).toBe(1);
+  });
+
+  it('puts the port keys on the bottom row of an XL', async () => {
+    const a = await startMock();
+    await startModule([a.port], { allow: true, deck: { columns: 8, rows: 4 } });
+    expect(sim!.keys[5]?.label).toBeTruthy(); // the switch, after the view keys
+    await sim!.tapStrip('ports');
+    await sim!.sendUi({ type: 'select-port', idx: 1 });
+    expect(sim!.keys).toHaveLength(32);
+    expect(sim!.keys[24]).toMatchObject({ label: '◀ PORT' });
+    expect(sim!.keys[25]).toMatchObject({ label: 'PORT ▶' });
+    await sim!.press(4); // NDI (30)
+    expect(sim!.keys[31]).toMatchObject({ label: 'SAVE', sublabel: '1 · hold' });
+    await sim!.press(31, { holdMs: 750 });
+    await until(() => a.mock.portState.get(1)!.pvid === 30);
   });
 
   it('changes nothing with Allow changes off', async () => {
