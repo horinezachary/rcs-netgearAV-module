@@ -28,12 +28,16 @@ export interface Port {
     /** Delivering power, searching, fault… */
     status: string;
     watts: number;
+    /** PoE class the powered device asked for (0-8), when reported. */
+    class?: number;
   };
   /** What LLDP sees on the other end, '' when nothing. */
   neighbor: string;
   neighborPort: string;
   /** A transceiver is reported on this port. */
   sfp: boolean;
+  /** What the switch reports about that transceiver, when it reports anything. */
+  optic?: { vendor: string; part: string; temp: number | null };
 }
 
 export interface Vlan {
@@ -65,6 +69,8 @@ export interface SwitchView {
   vlans: Vlan[];
   /** Total throughput, [rx, tx] Mb/s, one sample per fast poll. */
   history: [number, number][];
+  /** The same per port, shorter: drawn for the selected port on a tall panel. */
+  portHistory?: Record<number, [number, number][]>;
 }
 
 export const emptySwitch = (): SwitchView => ({ info: null, ports: [], vlans: [], history: [] });
@@ -195,7 +201,13 @@ export function parsePorts(stats: Raw[], configs: Raw[], poe: Raw[], lldp: Raw[]
   for (const c of poe) {
     const idx = portNumber(c.portid ?? c.portId ?? c.ID);
     if (idx === null) continue;
-    get(idx).poe = { enabled: bool(c.enable), status: poeStatus(c.status), watts: Math.round(num(c.currentPower) / 100) / 10 };
+    const cls = c.classification ?? c.class ?? c.poeClass;
+    get(idx).poe = {
+      enabled: bool(c.enable),
+      status: poeStatus(c.status),
+      watts: Math.round(num(c.currentPower) / 100) / 10,
+      ...(cls !== undefined && cls !== null && cls !== '' && Number.isFinite(Number(cls)) ? { class: Number(cls) } : {})
+    };
   }
   for (const n of lldp) {
     const idx = portNumber(n.ifIndex ?? n.portNum ?? n.port);
@@ -206,7 +218,13 @@ export function parsePorts(stats: Raw[], configs: Raw[], poe: Raw[], lldp: Raw[]
   }
   for (const f of fibre) {
     const idx = portNumber(f.port ?? f.portName);
-    if (idx !== null && ports.has(idx)) get(idx).sfp = true;
+    if (idx === null || !ports.has(idx)) continue;
+    const p = get(idx);
+    p.sfp = true;
+    const temp = parseFloat(f.temp ?? f.temperature);
+    const vendor = str(f.vendorName ?? f.vendor, 32);
+    const part = str(f.partNumber ?? f.part ?? f.vendorPn, 32);
+    if (vendor || part || Number.isFinite(temp)) p.optic = { vendor, part, temp: Number.isFinite(temp) ? temp : null };
   }
   for (const p of ports.values()) if (!p.pvid && p.vlans.length === 1) p.pvid = p.vlans[0]!;
   return [...ports.values()].sort((a, b) => a.idx - b.idx);

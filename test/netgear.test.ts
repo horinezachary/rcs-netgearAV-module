@@ -229,6 +229,27 @@ describe('module', () => {
     expect(writes(b.mock)).toEqual([]);
   });
 
+  it('sends every switch\'s ports for a tall panel, and a tap there picks the switch and port', async () => {
+    const a = await startMock();
+    const b = await startMock({ name: 'SW-Stage', model: 'M4250-10G2F-PoE+' });
+    await startModule([a.port, b.port], { allow: true, state: { sw: '00000001', selPort: 1 } });
+    await sim!.sendUi({ type: 'pick-vlan', vlan: 30 });
+    expect(last().pending.length).toBe(1);
+    const s = last();
+    expect(s.all.map((d: any) => [d.name, d.ports.length])).toEqual([
+      ['SW-FOH', 30],
+      ['SW-Stage', 12]
+    ]);
+    expect(s.all[0].ports[0].poe.class).toBe(4);
+    expect(s.all[0].ports.find((p: any) => p.optic)?.optic).toMatchObject({ vendor: 'NETGEAR', part: 'AXM763', temp: 38.2 });
+    await sim!.sendUi({ type: 'select-port', id: '00000002', idx: 5 });
+    const t = last();
+    expect([t.current, t.selPort, t.pending]).toEqual(['00000002', 5, []]); // unsaved picks belong to one switch
+    expect(Array.isArray(t.selHistory)).toBe(true);
+    expect(writes(a.mock)).toEqual([]);
+    expect(writes(b.mock)).toEqual([]);
+  });
+
   it('keeps logins out of config and state, in the module secrets', async () => {
     const a = await startMock();
     await startModule([a.port]);

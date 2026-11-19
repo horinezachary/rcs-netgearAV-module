@@ -10,7 +10,7 @@
 
 import { EventEmitter } from 'node:events';
 import { CertificateChanged, request, type Target } from './http.js';
-import { asList, emptySwitch, parseInfo, parsePorts, parseVlans, unwrap, type SwitchView } from './model.js';
+import { asList, emptySwitch, parseInfo, parsePorts, parseVlans, portNumber, unwrap, type SwitchView } from './model.js';
 
 export type Connection = 'connected' | 'connecting' | 'disconnected';
 
@@ -159,6 +159,15 @@ export class SwitchClient extends EventEmitter {
     const rx = this.raw.stats.reduce((a, s) => a + (parseFloat(s.rxMbps) || 0), 0);
     const tx = this.raw.stats.reduce((a, s) => a + (parseFloat(s.txMbps) || 0), 0);
     this.view.history = this.view.history.concat([[Math.round(rx * 10) / 10, Math.round(tx * 10) / 10]]).slice(-this.o.historyLength);
+    // A shorter history per port, for the detail panel on a tall screen.
+    const per: Record<number, [number, number][]> = {};
+    const old = this.view.portHistory ?? {};
+    for (const st of this.raw.stats) {
+      const idx = portNumber(st.portId ?? st.portid ?? st.ID ?? st.port);
+      if (idx === null) continue;
+      per[idx] = (old[idx] ?? []).concat([[Math.round((parseFloat(st.rxMbps) || 0) * 10) / 10, Math.round((parseFloat(st.txMbps) || 0) * 10) / 10]]).slice(-30);
+    }
+    this.view.portHistory = per;
   }
 
   private rebuild(): void {

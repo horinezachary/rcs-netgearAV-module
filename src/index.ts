@@ -312,7 +312,11 @@ export function snapshot(ctx: C) {
     switches: c.switches.map(summary),
     current: cur?.id ?? '',
     detail: detail(cur),
+    // Every switch's ports, for a tall panel that draws them all at once. Small: a few switches of
+    // up to 52 ports. The 440 bar ignores it.
+    all: c.switches.map(detail),
     selPort: ctx.state.value.selPort,
+    selHistory: cur ? (viewOf(cur.id).portHistory?.[ctx.state.value.selPort] ?? []) : [],
     pending: [...(rt?.pending ?? [])],
     found: rt?.found ?? [],
     searching: rt?.searching ?? ''
@@ -457,7 +461,16 @@ async function stepPort(ctx: C, by: number): Promise<void> {
   await draw(ctx);
 }
 
-async function selectPort(ctx: C, idx: unknown): Promise<void> {
+async function selectPort(ctx: C, idx: unknown, id?: unknown): Promise<void> {
+  // A tall panel shows every switch's ports, so a tap can pick a port on another switch.
+  if (typeof id === 'string' && rt && id !== currentEntry(ctx)?.id) {
+    const other = cfg(ctx).switches.find((s) => s.id === id);
+    if (!other || !viewOf(other.id).ports.some((p) => p.idx === idx)) return;
+    rt.pending.clear(); // unsaved picks belong to one switch
+    rt.vlanPage = 0;
+    await ctx.state.patch({ sw: other.id, selPort: idx as number });
+    return draw(ctx);
+  }
   const e = currentEntry(ctx);
   if (!e || !viewOf(e.id).ports.some((p) => p.idx === idx)) return;
   await ctx.state.patch({ sw: e.id, selPort: idx as number });
@@ -816,7 +829,7 @@ export default defineModule<State, Config>({
       case 'select-switch':
         return selectSwitch(ctx, m.id, !!m.open);
       case 'select-port':
-        return selectPort(ctx, m.idx);
+        return selectPort(ctx, m.idx, m.id);
       case 'pick-vlan':
         return pickVlan(ctx, Number(m.vlan));
       case 'revert':
