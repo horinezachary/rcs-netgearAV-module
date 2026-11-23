@@ -18,6 +18,16 @@ too (see [Engage](#netgear-engage)).
   scan of the unit's subnets for the API port. Press a switch's key, or Add, to watch it.
 - **Setup**: switches by address, the Allow changes switch, and in the web view the logins.
 
+On a taller touchscreen (1920×1080) the Switches cards take the full height: each adds the switch's
+front panel in miniature (coloured by VLAN, with link dots), a traffic chart with a scale, the PoE
+budget as a bar, the busiest ports and what needs attention (Not saved, ports shut down, PoE faults).
+Up to nine cards show; past that, switches that need attention come first and the last card says how
+many more there are. Ports draws every switch's front panel at once, each under its name, and a tap
+on any port selects that switch and port (the keys follow). A detail panel across the bottom shows the
+selected port's link, traffic both ways with a short history, LLDP neighbour, PoE status, watts and
+class, untagged and tagged VLANs and the SFP module where there is one. The switch buttons show only
+when there are more switches than fit. The 1920×440 bar is unchanged.
+
 ## The switches are the source of truth
 
 Everything shown is read from the switches every few seconds and kept only in memory: nothing about

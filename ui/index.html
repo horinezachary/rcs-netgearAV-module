@@ -62,6 +62,73 @@
       .selbar .to { color: var(--rcs-accent); font: 700 17px var(--rcs-mono); }
       .actions { display: flex; align-items: center; gap: 10px; }
 
+      /* A taller screen (fullPanel on a 16:9 touchscreen). The 440 px bar never matches this, so it
+         keeps the layout above. Overview cards take the height and carry each switch's front panel,
+         a scaled traffic chart, the PoE budget and what needs attention. Ports draws every switch's
+         front panel at once with a detail panel across the bottom. */
+      .tall-only { display: none; }
+      @media (min-height: 600px) {
+        .short-only { display: none !important; }
+        #view-overview.scroll { overflow: hidden; }
+        .cards.tall { height: 100%; grid-template-columns: repeat(var(--cols), minmax(0, 1fr)); grid-template-rows: repeat(var(--rows), minmax(0, 1fr)); gap: 16px; }
+        .cards.tall .card { height: auto; display: flex; flex-direction: column; gap: 12px; padding: 16px 20px; overflow: hidden; }
+        .cards.tall .card .n { font-size: 24px; }
+        .cards.tall .card .m { font-size: 15px; }
+        .cards.tall .kv { grid-template-columns: repeat(4, auto) 1fr; gap: 2px 22px; }
+        .cards.tall .kv .k { font-size: 12px; }
+        .cards.tall .kv .v { font-size: 24px; }
+        .cards.tall .kv .fw { grid-row: 1 / 3; grid-column: 5; justify-self: end; align-self: center; text-align: right; font: 13px var(--rcs-mono); color: var(--rcs-muted); line-height: 1.6; }
+        .lbl { font-size: 12px; font-weight: 600; letter-spacing: 0.08em; color: var(--rcs-muted); display: flex; justify-content: space-between; gap: 12px; white-space: nowrap; }
+        .lbl b { font: 600 13px var(--rcs-mono); letter-spacing: 0; color: var(--rcs-text); }
+        .budget { display: flex; flex-direction: column; gap: 5px; }
+        .bar { height: 10px; border-radius: 5px; background: var(--rcs-bg); border: 1px solid var(--rcs-border); overflow: hidden; }
+        .bar i { display: block; height: 100%; background: var(--rcs-ok); }
+        .bar i.warn { background: var(--rcs-warn); }
+        .bar i.bad { background: var(--rcs-error); }
+        .mini { display: grid; gap: 4px; }
+        .mini span { height: 38px; border-radius: 5px; position: relative; border: 1px solid transparent; font: 600 11px var(--rcs-mono); display: flex; align-items: center; justify-content: center; color: var(--rcs-text); min-width: 0; overflow: hidden; }
+        .mini span.down { opacity: 0.5; }
+        .mini span.shut { opacity: 0.5; background: repeating-linear-gradient(135deg, transparent 0 5px, color-mix(in srgb, var(--rcs-error) 30%, transparent) 5px 7px) !important; }
+        .mini span.fault { border-color: var(--rcs-error); }
+        .mini span::after { content: ''; position: absolute; top: 3px; right: 3px; width: 5px; height: 5px; border-radius: 3px; background: var(--rcs-muted); }
+        .mini span.up::after { background: var(--rcs-ok); }
+        .cards.compact .mini, .cards.compact .mini-l { display: none; }
+        .chart { flex: 1 1 0; min-height: 90px; max-height: 300px; display: flex; flex-direction: column; gap: 4px; }
+        .chart .plot { flex: 1; min-height: 0; display: grid; grid-template-columns: 70px 1fr; }
+        .chart .axis { display: flex; flex-direction: column; justify-content: space-between; font: 12px var(--rcs-mono); color: var(--rcs-muted); padding-right: 8px; text-align: right; }
+        .chart svg { width: 100%; height: 100%; display: block; border-left: 1px solid var(--rcs-border); border-bottom: 1px solid var(--rcs-border); }
+        .busy { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 3px 14px; font-size: 15px; align-items: baseline; }
+        .busy .pn { font: 700 15px var(--rcs-mono); }
+        .busy .nm { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--rcs-muted); }
+        .busy .r { font: 14px var(--rcs-mono); white-space: nowrap; text-align: right; }
+        .cards.compact .busy, .cards.compact .busy-l { display: none; }
+        .attn { margin-top: auto; display: flex; flex-direction: column; gap: 3px; font-size: 15px; }
+        .attn .ok { color: var(--rcs-muted); }
+        .attn div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .card.more { align-items: center; justify-content: center; color: var(--rcs-muted); font-size: 18px; cursor: default; }
+
+        #view-ports .panels { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 14px; overflow: hidden; }
+        .swp { display: flex; flex-direction: column; gap: 6px; flex: none; }
+        .swp h2 { margin: 0; display: flex; align-items: center; gap: 12px; font-size: 18px; font-weight: 700; min-height: 26px; white-space: nowrap; }
+        .swp h2 .m { font: 14px var(--rcs-mono); color: var(--rcs-muted); font-weight: 400; overflow: hidden; text-overflow: ellipsis; }
+        .swp.cur h2 { color: var(--rcs-accent); }
+        .swp .ports { grid-auto-rows: var(--tile, 78px); }
+        .swp .port { height: auto; }
+        .swp .note { padding: 2px 0; }
+        .detail { display: grid; grid-template-columns: 1.3fr 1.6fr 1.3fr 1fr 1.5fr; gap: 0; border: 1px solid var(--rcs-border); border-radius: 12px; background: var(--rcs-surface); min-height: 168px; }
+        .detail.optic { grid-template-columns: 1.3fr 1.6fr 1.3fr 1fr 1.5fr 1fr; }
+        .detail > div { padding: 12px 16px; border-left: 1px solid var(--rcs-border); display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+        .detail > div:first-child { border-left: 0; }
+        .detail .big { font: 700 26px var(--rcs-mono); white-space: nowrap; }
+        .detail .t { font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .detail .s { font: 14px var(--rcs-mono); color: var(--rcs-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .detail svg { width: 100%; flex: 1; min-height: 40px; display: block; }
+        .chips { display: flex; flex-wrap: wrap; gap: 5px; }
+        .chip { font: 600 13px var(--rcs-font); padding: 3px 8px; border-radius: 6px; border: 1px solid var(--rcs-border); white-space: nowrap; }
+        .chip.to { border: 2px dashed var(--rcs-accent); }
+        .swmore { color: var(--rcs-muted); font-size: 14px; }
+      }
+
       /* discover */
       .list { border: 1px solid var(--rcs-border); border-radius: 12px; background: var(--rcs-surface); }
       .item { display: flex; align-items: center; gap: 18px; padding: 10px 18px; border-bottom: 1px solid var(--rcs-border); }
@@ -101,8 +168,10 @@
       </section>
 
       <section id="view-ports" hidden style="flex-direction: column; gap: 10px; flex: 1; min-height: 0">
-        <div class="ports" id="ports"></div>
-        <div class="selbar" id="selbar"></div>
+        <div class="ports short-only" id="ports"></div>
+        <div class="panels tall-only" id="panels"></div>
+        <div class="selbar short-only" id="selbar"></div>
+        <div class="detail tall-only" id="detail"></div>
         <div class="actions" id="portActions"></div>
       </section>
 
@@ -193,7 +262,335 @@
         return svg;
       }
 
+      // ---- a taller screen ---------------------------------------------------------------------
+      const tallQuery = matchMedia('(min-height: 600px)');
+      const isTall = () => tallQuery.matches;
+      tallQuery.addEventListener('change', () => draw());
+      addEventListener('resize', () => draw());
+      // One colour per VLAN id across every switch, so a VLAN looks the same on each front panel.
+      function allVlans() {
+        const m = new Map();
+        for (const d of s.all ?? []) for (const v of d?.vlans ?? []) if (!m.has(v.id) || !m.get(v.id)) m.set(v.id, v.name);
+        return [...m].sort((a, b) => a[0] - b[0]);
+      }
+      const tallColor = (id, list) => {
+        const i = list.findIndex(([v]) => v === id);
+        return i < 0 ? '#8C95A1' : VLAN_COLORS[i % VLAN_COLORS.length];
+      };
+      const detailOf = (id) => (s.all ?? []).find((d) => d?.id === id);
+      const isFault = (p) => p.poe && /Fault|Overload/.test(p.poe.status);
+
+      // What needs attention on one switch, worst first.
+      function attention(w) {
+        const out = [];
+        if (!w.ready) out.push(['bad', w.certificateSeen ? 'Certificate changed: trust it in Setup' : w.statusText || 'Connecting…']);
+        if (w.unsaved) out.push(['warn', 'Not saved: changes are lost at the next reboot']);
+        const d = detailOf(w.id);
+        if (d && w.ready) {
+          const faults = d.ports.filter(isFault).map((p) => p.idx);
+          if (faults.length) out.push(['bad', `PoE fault on port${faults.length > 1 ? 's' : ''} ${faults.join(', ')}`]);
+          const shut = d.ports.filter((p) => !p.enabled).map((p) => p.idx);
+          if (shut.length) out.push(['warn', `Shut down: port${shut.length > 1 ? 's' : ''} ${shut.join(', ')}`]);
+          const i = w.info ?? {};
+          if (i.poeBudget && i.poeDraw != null && i.poeDraw / i.poeBudget > 0.9) out.push(['warn', 'PoE near its budget']);
+          if (i.tempState && !/normal|ok|good/i.test(i.tempState)) out.push(['warn', `Temperature ${i.tempState.toLowerCase()}`]);
+        }
+        return out;
+      }
+
+      // Traffic with a scale: a rounded top value and three grid lines.
+      function chart(hist) {
+        const NS = 'http://www.w3.org/2000/svg';
+        const peak = Math.max(10, ...hist.flat());
+        const step = [10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000, 50000, 100000].find((x) => x * 4 >= peak) ?? Math.ceil(peak / 4);
+        const top = step * 4;
+        const svg = document.createElementNS(NS, 'svg');
+        svg.setAttribute('viewBox', '0 0 300 100');
+        svg.setAttribute('preserveAspectRatio', 'none');
+        for (const y of [25, 50, 75]) {
+          const g = document.createElementNS(NS, 'line');
+          for (const [k, v] of Object.entries({ x1: 0, x2: 300, y1: y, y2: y, stroke: 'var(--rcs-border)', 'stroke-width': 1, 'vector-effect': 'non-scaling-stroke' })) g.setAttribute(k, v);
+          svg.append(g);
+        }
+        const n = Math.max(hist.length - 1, 1);
+        for (const [k, color] of [[0, '#5B8DEF'], [1, '#F5A524']]) {
+          const l = document.createElementNS(NS, 'polyline');
+          l.setAttribute('points', hist.map((h, i) => `${((i / n) * 300).toFixed(1)},${(100 - (h[k] / top) * 100).toFixed(1)}`).join(' '));
+          for (const [a, v] of Object.entries({ fill: 'none', stroke: color, 'stroke-width': 2, 'vector-effect': 'non-scaling-stroke' })) l.setAttribute(a, v);
+          svg.append(l);
+        }
+        const axis = el('div', { class: 'axis' });
+        for (const v of [top, step * 3, step * 2, step, 0]) axis.append(el('span', {}, v ? rate(v).replace('.0 ', ' ') : '0'));
+        return { svg, axis };
+      }
+
+      function miniPanel(d, vl) {
+        const rows = d.layout;
+        const cols = Math.max(...rows.map((r) => r.length));
+        const box = el('div', { class: 'mini', 'aria-hidden': 'true' });
+        box.style.gridTemplateColumns = `repeat(${cols}, minmax(0, 1fr))`;
+        const byIdx = new Map(d.ports.map((p) => [p.idx, p]));
+        rows.forEach((row, r) =>
+          row.forEach((idx, c) => {
+            const p = byIdx.get(idx);
+            const cell = el('span', { class: [p.up ? 'up' : 'down', p.enabled ? '' : 'shut', isFault(p) ? 'fault' : ''].filter(Boolean).join(' ') }, cols <= 16 ? String(idx) : '');
+            cell.style.gridRow = String(r + 1);
+            cell.style.gridColumn = String(c + 1);
+            cell.style.background = `color-mix(in srgb, ${tallColor(p.pvid, vl)} ${p.up ? 45 : 15}%, var(--rcs-bg))`;
+            box.append(cell);
+          })
+        );
+        return box;
+      }
+
+      function tallCard(w, vl) {
+        const b = el('button', { class: 'card' + (w.ready ? '' : ' off'), 'aria-label': `${w.name}, open ports` });
+        const top = el('div', { class: 'top' });
+        top.append(el('span', { class: 'dot ' + (w.ready ? 'up' : w.connection === 'connecting' ? '' : 'down') }), el('span', { class: 'n' }, w.name), el('span', { class: 'm' }, [w.model, w.address].filter(Boolean).join(' · ')), el('div', { class: 'grow' }));
+        if (w.unsaved) top.append(el('span', { class: 'badge warn' }, 'NOT SAVED'));
+        if (w.faults) top.append(el('span', { class: 'badge bad' }, `${w.faults} POE FAULT${w.faults > 1 ? 'S' : ''}`));
+        b.append(top);
+        b.onclick = () => rcs.send({ type: 'select-switch', id: w.id, open: true });
+        const attn = el('div', { class: 'attn' });
+        const list = attention(w);
+        for (const [cls, text] of list) attn.append(el('div', { class: cls }, text));
+        if (!w.ready) {
+          b.append(attn);
+          return b;
+        }
+        const i = w.info ?? {};
+        const kv = el('div', { class: 'kv' });
+        const cells = [
+          ['PORTS UP', `${w.portsUp}/${w.portCount}`],
+          ['POE ON', i.poeBudget ? String(w.poeOn) : '–'],
+          ['CPU', i.cpu || '–'],
+          ['TEMP', i.temp != null ? `${i.temp}°` : '–']
+        ];
+        for (const [k] of cells) kv.append(el('span', { class: 'k' }, k));
+        kv.append(el('span', { class: 'fw' }, `FW ${i.firmware || '–'}\nUP ${(i.uptime || '–').replace(/,.*$/, '')}`));
+        kv.lastChild.style.whiteSpace = 'pre';
+        for (const [, v] of cells) kv.append(el('span', { class: 'v' }, v));
+        b.append(kv);
+        if (i.poeBudget) {
+          const used = (i.poeDraw ?? 0) / i.poeBudget;
+          const bud = el('div', { class: 'budget' });
+          const lbl = el('div', { class: 'lbl' });
+          lbl.append(el('span', {}, 'POE BUDGET'), el('b', {}, `${Math.round(i.poeDraw ?? 0)} of ${Math.round(i.poeBudget)} W`));
+          const bar = el('div', { class: 'bar' });
+          const fill = el('i', { class: used > 0.9 ? 'bad' : used > 0.75 ? 'warn' : '' });
+          fill.style.width = `${Math.min(100, used * 100).toFixed(1)}%`;
+          bar.append(fill);
+          bud.append(lbl, bar);
+          b.append(bud);
+        }
+        const d = detailOf(w.id);
+        if (d?.ports.length) {
+          const ml = el('div', { class: 'lbl mini-l' });
+          ml.append(el('span', {}, 'PORTS'), el('span', {}, 'colour = VLAN'));
+          b.append(ml, miniPanel(d, vl));
+        }
+        const now = w.history.at(-1) ?? [0, 0];
+        const ch = el('div', { class: 'chart' });
+        const lbl = el('div', { class: 'lbl' });
+        lbl.append(el('span', {}, `TRAFFIC · LAST ${Math.max(1, Math.round((w.history.length * 5) / 60))} MIN`), el('b', {}, `↓${rate(now[0])}  ↑${rate(now[1])}`));
+        const plot = el('div', { class: 'plot' });
+        const { svg, axis } = chart(w.history);
+        plot.append(axis, svg);
+        ch.append(lbl, plot);
+        b.append(ch);
+        // The busiest ports, by traffic both ways: where a loop or a stuck stream shows first.
+        if (d?.ports.length) {
+          const top = d.ports.filter((p) => p.up && p.rx + p.tx > 0).sort((a, b) => b.rx + b.tx - (a.rx + a.tx)).slice(0, 8);
+          if (top.length) {
+            const bl = el('div', { class: 'lbl busy-l' });
+            bl.append(el('span', {}, 'BUSIEST PORTS'), el('span', {}, '↓ in  ↑ out'));
+            const bx = el('div', { class: 'busy' });
+            for (const p of top) bx.append(el('span', { class: 'pn' }, String(p.idx)), el('span', { class: 'nm' }, [p.name, p.neighbor && p.neighbor !== p.name ? p.neighbor : ''].filter(Boolean).join(' · ') || '–'), el('span', { class: 'r' }, `↓${rate(p.rx)}  ↑${rate(p.tx)}`));
+            b.append(bl, bx);
+          }
+        }
+        if (!list.length) attn.append(el('div', { class: 'ok' }, 'Nothing needs attention'));
+        b.append(attn);
+        return b;
+      }
+
+      function drawOverviewTall() {
+        const vl = allVlans();
+        const n = s.switches.length;
+        // Up to nine cards: one row up to three switches, then two, then three rows. Past nine the
+        // last card says how many more, and switches that need attention come first so they show.
+        const cols = n <= 3 ? n : n === 4 ? 2 : 3;
+        const rows = Math.min(3, Math.ceil(n / cols));
+        const fit = cols * rows;
+        let list = s.switches;
+        if (n > fit) {
+          const rank = (w) => (!w.ready ? 0 : attention(w).length ? 1 : 2);
+          list = list.map((w, i) => [w, i]).sort((a, b) => rank(a[0]) - rank(b[0]) || a[1] - b[1]).map(([w]) => w).slice(0, fit - 1);
+        }
+        const box = $('cards');
+        box.className = 'cards tall' + (rows >= 3 ? ' compact' : '');
+        box.style.setProperty('--cols', cols);
+        box.style.setProperty('--rows', rows);
+        const cards = list.map((w) => tallCard(w, vl));
+        if (n > fit) cards.push(el('div', { class: 'card more' }, `+${n - list.length} more switches, all listed in the web view`));
+        box.replaceChildren(...cards);
+        // A card that still runs out of room drops the busiest ports, then its front panel.
+        for (const c of box.children) {
+          for (const sel of ['.busy, .busy-l', '.mini, .mini-l']) if (c.scrollHeight > c.clientHeight + 1) c.querySelectorAll(sel).forEach((x) => x.remove());
+        }
+      }
+
+      function portTile(w, d, p, vl, pend) {
+        const isCur = w.id === s.current;
+        const shown = isCur && pend.has(p.idx) ? pend.get(p.idx) : p.pvid;
+        const color = tallColor(shown, vl);
+        const sel = isCur && p.idx === s.selPort;
+        const cls = ['port', p.up ? '' : 'down', p.enabled ? '' : 'shut', isCur && pend.has(p.idx) ? 'pending' : '', sel ? 'sel' : ''].filter(Boolean).join(' ');
+        const b = el('button', { class: cls, 'aria-label': `${w.name} port ${p.idx}` });
+        b.style.background = `color-mix(in srgb, ${color} ${p.up ? 22 : 8}%, var(--rcs-surface))`;
+        if (!(isCur && pend.has(p.idx)) && !sel) b.style.borderColor = `color-mix(in srgb, ${color} 55%, transparent)`;
+        const n = el('span', { class: 'n' });
+        n.append(el('span', { class: 'dot' + (p.up ? ' up' : '') }), String(p.idx));
+        const name = vl.find(([v]) => v === shown)?.[1] || (shown ? `VLAN ${shown}` : '–');
+        const sub = el('span', { class: 'sub' }, isCur && pend.has(p.idx) ? 'unsaved' : !p.enabled ? 'shut' : p.up ? speed(p.speed) || 'up' : p.sfp ? 'SFP' : '');
+        if (p.poe?.watts) sub.append(' ', el('span', { class: 'bolt' }, `⚡${Math.round(p.poe.watts)}`));
+        else if (isFault(p)) sub.append(' ', el('span', { class: 'bolt fault' }, '⚡!'));
+        b.append(n, el('span', { class: 'vl' }, name), sub);
+        b.onclick = () => rcs.send({ type: 'select-port', id: w.id, idx: p.idx });
+        return b;
+      }
+
+      function switchPanel(w, vl, pend) {
+        const d = detailOf(w.id);
+        const box = el('div', { class: 'swp' + (w.id === s.current ? ' cur' : '') });
+        const h = el('h2');
+        h.append(el('span', { class: 'dot ' + (w.ready ? 'up' : 'down') }), w.name, el('span', { class: 'm' }, [w.model, w.address].filter(Boolean).join(' · ')), el('div', { class: 'grow' }));
+        if (w.unsaved) h.append(el('span', { class: 'badge warn' }, 'NOT SAVED'));
+        if (w.faults) h.append(el('span', { class: 'badge bad' }, `${w.faults} POE FAULT${w.faults > 1 ? 'S' : ''}`));
+        box.append(h);
+        if (!w.ready || !d?.ports.length) {
+          box.append(el('p', { class: 'note' }, w.ready ? 'No ports reported yet.' : w.statusText || 'Connecting…'));
+          return box;
+        }
+        const grid = el('div', { class: 'ports' });
+        const cols = Math.max(...d.layout.map((r) => r.length));
+        grid.style.gridTemplateColumns = `repeat(${cols}, minmax(0, 1fr))`;
+        if (cols > 20) grid.style.gap = '5px';
+        const byIdx = new Map(d.ports.map((p) => [p.idx, p]));
+        d.layout.forEach((row, r) =>
+          row.forEach((idx, c) => {
+            const t = portTile(w, d, byIdx.get(idx), vl, pend);
+            t.style.gridRow = String(r + 1);
+            t.style.gridColumn = String(c + 1);
+            grid.append(t);
+          })
+        );
+        box.append(grid);
+        return box;
+      }
+
+      function drawPortsTall() {
+        const vl = allVlans();
+        const pend = new Map(s.pending);
+        const area = $('panels');
+        // Tiles as tall as fit with every switch shown, between a touch-sized floor and a cap so a
+        // single switch does not get stretched tiles.
+        const drawn = (w) => w.ready && detailOf(w.id)?.ports.length;
+        const totalRows = s.switches.reduce((a, w) => a + (drawn(w) ? detailOf(w.id).layout.length : 0), 0);
+        const notes = s.switches.filter((w) => !drawn(w)).length;
+        const h = area.clientHeight || 600;
+        const free = h - s.switches.length * 46 - notes * 30 - totalRows * 7 - 8;
+        const tile = Math.max(64, Math.min(96, Math.floor(free / Math.max(1, totalRows))));
+        area.style.setProperty('--tile', tile + 'px');
+        let shown = s.switches;
+        area.replaceChildren(...shown.map((w) => switchPanel(w, vl, pend)));
+        // More switches than fit: keep the selected one and its neighbours, and the switch buttons
+        // in the header pick the others.
+        let cut = false;
+        if (area.scrollHeight > area.clientHeight + 1) {
+          cut = true;
+          const ci = Math.max(0, s.switches.findIndex((w) => w.id === s.current));
+          let lo = ci, hi = ci + 1;
+          const tryShow = (a, b) => {
+            area.replaceChildren(...s.switches.slice(a, b).map((w) => switchPanel(w, vl, pend)));
+            return area.scrollHeight <= area.clientHeight + 1;
+          };
+          tryShow(lo, hi);
+          for (;;) {
+            if (hi < s.switches.length && tryShow(lo, hi + 1)) { hi++; continue; }
+            if (lo > 0 && tryShow(lo - 1, hi)) { lo--; continue; }
+            break;
+          }
+          tryShow(lo, hi);
+          shown = s.switches.slice(lo, hi);
+          area.append(el('div', { class: 'swmore' }, `${s.switches.length - shown.length} more switch${s.switches.length - shown.length > 1 ? 'es' : ''}: pick one with the buttons above`));
+        }
+        $('swTabs').hidden = !cut;
+        drawDetail(vl, pend);
+      }
+
+      function spark(hist) {
+        const { svg } = chart(hist.length ? hist : [[0, 0]]);
+        return svg;
+      }
+
+      function drawDetail(vl, pend) {
+        const w = cur();
+        const d = s.detail;
+        const box = $('detail');
+        const p = d?.ports.find((x) => x.idx === s.selPort) ?? d?.ports[0];
+        if (!w || !w.ready || !p) {
+          box.replaceChildren();
+          box.style.visibility = 'hidden';
+          return;
+        }
+        box.style.visibility = '';
+        const col = (k, ...kids) => {
+          const c = el('div');
+          c.append(el('span', { class: 'lbl' }, k), ...kids);
+          return c;
+        };
+        const vname = (id) => vl.find(([v]) => v === id)?.[1] || (id ? `VLAN ${id}` : '–');
+        const chip = (id, cls = '') => {
+          const c = el('span', { class: 'chip ' + cls }, `${vname(id)} (${id})`);
+          c.style.background = `color-mix(in srgb, ${tallColor(id, vl)} 25%, transparent)`;
+          return c;
+        };
+        const cols = [];
+        cols.push(col(`${w.name.toUpperCase()}`, el('span', { class: 'big' }, `Port ${p.idx}`), el('span', { class: 't' }, p.name || (p.up ? 'No description' : 'Nothing connected')), el('span', { class: 's ' + (!p.enabled ? 'bad' : p.up ? 'good' : '') }, !p.enabled ? 'Shut down' : p.up ? `Link up · ${speed(p.speed) || '?'}` : p.sfp ? 'No link · SFP' : 'No link')));
+        const hist = s.selHistory ?? [];
+        const traffic = col('TRAFFIC', el('span', { class: 't' }, p.up ? `↓${rate(p.rx)}   ↑${rate(p.tx)}` : '–'));
+        if (p.up && hist.length > 1) traffic.append(spark(hist));
+        cols.push(traffic);
+        cols.push(col('NEIGHBOUR (LLDP)', el('span', { class: 't' }, p.neighbor || 'None seen'), el('span', { class: 's' }, p.neighborPort ? `port ${p.neighborPort}` : '')));
+        cols.push(
+          col(
+            'POE',
+            el('span', { class: 't' + (isFault(p) ? ' bad' : '') }, p.poe ? p.poe.status : 'No PoE'),
+            el('span', { class: 's' }, p.poe ? [p.poe.watts ? `${p.poe.watts.toFixed(1)} W` : '', p.poe.class != null ? `class ${p.poe.class}` : '', p.poe.enabled ? '' : 'off'].filter(Boolean).join(' · ') : '')
+          )
+        );
+        const vlc = col('VLANS');
+        const un = el('div', { class: 'chips' });
+        un.append(el('span', { class: 's' }, 'untagged'), chip(p.pvid));
+        if (pend.has(p.idx)) un.append(el('span', { class: 's' }, '→'), chip(pend.get(p.idx), 'to'));
+        vlc.append(un);
+        const tagged = p.vlans.filter((v) => v !== p.pvid);
+        if (tagged.length) {
+          const tg = el('div', { class: 'chips' });
+          tg.append(el('span', { class: 's' }, 'tagged'), ...tagged.slice(0, 6).map((v) => chip(v)));
+          if (tagged.length > 6) tg.append(el('span', { class: 's' }, `+${tagged.length - 6}`));
+          vlc.append(tg);
+        }
+        cols.push(vlc);
+        if (p.optic) cols.push(col('SFP', el('span', { class: 't' }, [p.optic.vendor, p.optic.part].filter(Boolean).join(' ') || 'Module fitted'), el('span', { class: 's' }, p.optic.temp != null ? `${p.optic.temp.toFixed(1)}°C` : '')));
+        box.className = 'detail tall-only' + (p.optic ? ' optic' : '');
+        box.replaceChildren(...cols);
+      }
+
       function drawOverview() {
+        if (isTall()) return drawOverviewTall();
+        $('cards').className = 'cards';
         $('cards').replaceChildren(
           ...s.switches.map((w) => {
             const b = el('button', { class: 'card' + (w.ready ? '' : ' off'), 'aria-label': `${w.name}, open ports` });
@@ -244,6 +641,7 @@
       function drawPorts() {
         const w = cur();
         const d = s.detail;
+        if (isTall()) drawPortsTall();
         if (!w || !d || !w.ready) {
           $('ports').replaceChildren(el('p', { class: 'note' }, w ? w.statusText || 'Connecting…' : 'No switch yet.'));
           $('selbar').hidden = true;
